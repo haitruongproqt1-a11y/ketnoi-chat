@@ -1,0 +1,22 @@
+# Project TODO
+
+- [x] Hoàn thiện nhận diện thương hiệu và biểu tượng Kết Nối.
+- [x] Tạo bộ dữ liệu miền cho người dùng, hội thoại, tin nhắn và cuộc gọi.
+- [x] Xây dựng điều hướng bốn tab: Tin nhắn, Danh bạ, Nhật ký và Cá nhân.
+- [x] Xây dựng danh sách hội thoại, tìm kiếm và thao tác tạo cuộc trò chuyện.
+- [x] Xây dựng màn hình cuộc trò chuyện với gửi tin nhắn, đính kèm và ghi âm ở mức giao diện.
+- [x] Xây dựng màn hình cuộc gọi thoại/video với điều khiển cuộc gọi và chia sẻ màn hình.
+- [x] Tạo hợp đồng cấu hình WebRTC P2P, ICE/TURN đa điểm và giao thức báo hiệu.
+- [x] Ghi chú giới hạn Expo Go và yêu cầu hạ tầng để kích hoạt media P2P thật.
+- [x] Viết kiểm thử đơn vị cho dữ liệu hội thoại và luồng thao tác chính.
+- [x] Kiểm tra kiểu dữ liệu, lint và trạng thái chạy của ứng dụng.
+- [ ] Khởi tạo dự án web full-stack tách client React/Vite và server Node.js/Socket.io.
+- [ ] Xây dựng xác thực tài khoản, danh bạ, trạng thái online/offline và lưu lịch sử chat.
+- [ ] Xây dựng chat 1-1 realtime, signaling WebRTC, gọi thoại/video P2P và chia sẻ màn hình.
+- [ ] Cấu hình STUN Google, TURN qua ENV và viết README cài đặt/triển khai.
+- [x] Cấu hình client Expo với Socket.io-client và react-native-webrtc cho development build.
+- [x] Xây dựng màn hình Login/Register gọi API Node.js và lưu JWT bằng AsyncStorage.
+- [x] Xây dựng danh sách bạn bè, presence online/offline và chat Socket.io realtime trên mobile.
+- [x] Xây dựng màn hình Video Call dùng camera/micro với signaling Offer/Answer/ICE qua Socket.io.
+- [x] Khởi động backend Node.js/Socket.io nội bộ ở cổng 3001 và xác nhận health endpoint từ mobile.
+- [x] Resize và nén bốn biểu tượng launcher/splash/favicon xuống 1024×1024 để lưu checkpoint.

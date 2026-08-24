@@ -1,8 +1,8 @@
 import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform } from "react-native";
@@ -18,6 +18,8 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import { AuthProvider } from "@/lib/auth-context";
+import { SocketProvider, useMobileSocket } from "@/lib/socket-context";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -85,10 +87,19 @@ export default function RootLayout() {
           {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-          </Stack>
+          <AuthProvider>
+            <SocketProvider>
+              <IncomingCallNavigator />
+              <Stack screenOptions={{ headerShown: false }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="auth" />
+                <Stack.Screen name="(tabs)" />
+                <Stack.Screen name="chat/[id]" />
+                <Stack.Screen name="call" />
+                <Stack.Screen name="oauth/callback" />
+              </Stack>
+            </SocketProvider>
+          </AuthProvider>
           <StatusBar style="auto" />
         </QueryClientProvider>
       </trpc.Provider>
@@ -116,4 +127,17 @@ export default function RootLayout() {
       <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
     </ThemeProvider>
   );
+}
+
+function IncomingCallNavigator() {
+  const { incomingOffer } = useMobileSocket();
+  const router = useRouter();
+  const routedCallId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!incomingOffer?.fromUserId || routedCallId.current === incomingOffer.callId) return;
+    routedCallId.current = incomingOffer.callId;
+    router.push({ pathname: "/call", params: { peerId: String(incomingOffer.fromUserId), direction: "incoming" } });
+  }, [incomingOffer, router]);
+  return null;
 }

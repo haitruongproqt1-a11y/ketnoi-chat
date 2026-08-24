@@ -32,7 +32,7 @@ const env = {
   appSlug: "ketnoi-chat",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "",
+  logoUrl: "/manus-storage/ketnoi-icon_746e2d60.png",
   scheme: schemeFromBundleId,
   iosBundleId: bundleId,
   androidPackage: bundleId,
@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS"],
+    permissions: ["POST_NOTIFICATIONS", "CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
     intentFilters: [
       {
         action: "VIEW",
@@ -90,6 +90,13 @@ const config: ExpoConfig = {
       "expo-audio",
       {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
+      },
+    ],
+    [
+      "@config-plugins/react-native-webrtc",
+      {
+        cameraPermission: "Allow $(PRODUCT_NAME) to access your camera for video calls.",
+        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone for voice and video calls.",
       },
     ],
     [
