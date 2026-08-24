@@ -4,8 +4,8 @@ import { io, type Socket } from "socket.io-client";
 import { SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
 
-type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup";
-type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string };
+type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share";
+type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string; isScreenSharing?: boolean };
 type ChatTyping = { fromUserId: number; isTyping: boolean };
 type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type ChatDeliveryReceipt = { recipientId: number; messageIds: number[]; deliveredAt: string };
@@ -54,7 +54,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     instance.on("chat:delivered", (payload: ChatDeliveryReceipt) => setLastDeliveryReceipt(payload));
     instance.on("chat:media-recalled", (payload: ChatMediaRecall) => setLastMediaRecall(payload));
-    const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup"];
+    const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup", "call:screen-share"];
     signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
       if (event === "call:offer") setIncomingOffer(payload);
       setLatestSignal({ event, payload });

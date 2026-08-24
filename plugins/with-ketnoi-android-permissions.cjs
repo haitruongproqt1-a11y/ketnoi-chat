@@ -1,4 +1,4 @@
-const { withAndroidManifest } = require("@expo/config-plugins");
+const { withAndroidManifest, withMainApplication } = require("@expo/config-plugins");
 
 const REQUIRED_PERMISSIONS = [
   "android.permission.CAMERA",
@@ -10,7 +10,7 @@ const REQUIRED_PERMISSIONS = [
 ];
 
 module.exports = function withKetNoiAndroidPermissions(config) {
-  return withAndroidManifest(config, (androidConfig) => {
+  const withPermissions = withAndroidManifest(config, (androidConfig) => {
     const manifest = androidConfig.modResults.manifest;
     const usesPermissions = manifest["uses-permission"] ?? [];
     const present = new Set(usesPermissions.map((permission) => permission.$?.["android:name"]));
@@ -18,6 +18,28 @@ module.exports = function withKetNoiAndroidPermissions(config) {
       if (!present.has(permission)) usesPermissions.push({ $: { "android:name": permission } });
     }
     manifest["uses-permission"] = usesPermissions;
+    return androidConfig;
+  });
+
+  return withMainApplication(withPermissions, (androidConfig) => {
+    const language = androidConfig.modResults.language;
+    const isJava = language === "java";
+    const importLine = isJava
+      ? "import com.oney.WebRTCModule.WebRTCModuleOptions;"
+      : "import com.oney.WebRTCModule.WebRTCModuleOptions";
+    const statement = isJava
+      ? "WebRTCModuleOptions.getInstance().enableMediaProjectionService = true;"
+      : "WebRTCModuleOptions.getInstance().enableMediaProjectionService = true";
+    let contents = androidConfig.modResults.contents;
+    if (!contents.includes("WebRTCModuleOptions")) {
+      contents = contents.replace(/^(package\s+[^\n]+\n)/m, `$1\n${importLine}\n`);
+    }
+    if (!contents.includes("enableMediaProjectionService = true")) {
+      contents = isJava
+        ? contents.replace(/super\.onCreate\(\);/, `super.onCreate();\n    ${statement}`)
+        : contents.replace(/super\.onCreate\(\)/, `super.onCreate()\n    ${statement}`);
+    }
+    androidConfig.modResults.contents = contents;
     return androidConfig;
   });
 };

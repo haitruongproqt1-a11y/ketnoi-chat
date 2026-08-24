@@ -77,6 +77,7 @@
     "react-native-web": "~0.21.2",
     "react-native-webrtc": "^124.0.8",
     "react-native-worklets": "0.5.1",
+    "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
     "superjson": "^1.13.3",
     "tailwind-merge": "^2.6.0",

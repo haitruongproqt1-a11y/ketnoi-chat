@@ -46,6 +46,7 @@ export default function CallScreen() {
   const [cameraOn, setCameraOn] = useState(withVideo);
   const [previewCorner, setPreviewCorner] = useState<PreviewCorner>("right");
   const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
   const [peerName, setPeerName] = useState(peerNameParam?.trim() || `Người dùng #${peerId}`);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
@@ -167,6 +168,7 @@ export default function CallScreen() {
       if (peerRef.current?.remoteDescription) void peerRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
       else candidatesRef.current.push(payload.candidate);
     }
+    if (event === "call:screen-share") setRemoteIsScreenSharing(Boolean(payload.isScreenSharing));
     if (event === "call:hangup") stopCall(false);
   }, [latestSignal]);
 
@@ -205,12 +207,13 @@ export default function CallScreen() {
     await sender.replaceTrack(track);
   };
 
-  const stopScreenShare = async () => {
+  const stopScreenShare = async (notify = true) => {
     const currentScreen = screenRef.current;
     const cameraTrack = localRef.current?.getVideoTracks?.()[0] ?? null;
     if (currentScreen) currentScreen.getTracks().forEach((track: any) => { track.onended = null; track.stop(); });
     screenRef.current = null;
     if (cameraTrack) await replaceOutgoingVideo(cameraTrack);
+    if (notify && peerId) sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: false });
     setIsScreenSharing(false);
   };
 
@@ -227,6 +230,7 @@ export default function CallScreen() {
       displayTrack.onended = () => { void stopScreenShare(); };
       await replaceOutgoingVideo(displayTrack);
       screenRef.current = displayStream;
+      sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: true });
       setIsScreenSharing(true);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể bắt đầu chia sẻ màn hình.");
@@ -263,6 +267,7 @@ export default function CallScreen() {
 
         <View style={[styles.stage, !withVideo && styles.audioStage]}>
           {withVideo && remoteStream ? <RTCView streamURL={remoteStream.toURL()} style={styles.remoteVideo} objectFit="cover" /> : withVideo ? <Fallback state={callState} /> : <AudioIdentity name={peerName} />}
+          {withVideo && remoteIsScreenSharing ? <View style={styles.remoteShareBadge}><Text style={styles.remoteShareText}>Người bên kia đang chia sẻ màn hình</Text></View> : null}
           {withVideo && previewStream ? (
             <Pressable onPress={() => setPreviewCorner((corner) => corner === "right" ? "left" : "right")} accessibilityLabel="Đổi vị trí khung xem trước" style={[styles.localPreview, previewCorner === "left" ? styles.localPreviewLeft : styles.localPreviewRight]}>
               <RTCView streamURL={previewStream.toURL()} style={styles.localVideo} objectFit="cover" mirror={!isScreenSharing} />
@@ -324,6 +329,8 @@ const styles = StyleSheet.create({
   stage: { flex: 1, overflow: "hidden", marginHorizontal: 16, marginTop: 16, borderRadius: 26, backgroundColor: "#102E50", borderWidth: 1, borderColor: "#214363" },
   audioStage: { justifyContent: "center" },
   remoteVideo: { flex: 1 },
+  remoteShareBadge: { position: "absolute", left: 14, right: 14, top: 14, paddingVertical: 7, paddingHorizontal: 10, borderRadius: 11, backgroundColor: "rgba(11,60,99,0.92)" },
+  remoteShareText: { color: "#D9EDFF", fontSize: 10, fontWeight: "900", textAlign: "center" },
   fallback: { flex: 1, alignItems: "center", justifyContent: "center" },
   avatar: { width: 142, height: 142, borderRadius: 71, alignItems: "center", justifyContent: "center", backgroundColor: "#1D5283", borderWidth: 3, borderColor: "#80BFFF" },
   audioAvatar: { width: 156, height: 156, borderRadius: 78, backgroundColor: "#195B94", shadowColor: "#43A7FF", shadowOpacity: 0.3, shadowRadius: 22, shadowOffset: { width: 0, height: 0 }, elevation: 4 },

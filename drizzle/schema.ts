@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { index, int, mysqlEnum, mysqlTable, text, timestamp, uniqueIndex, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,51 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Người dùng của luồng chat/call di động. Bảng này tách khỏi tài khoản OAuth
+ * để giữ cho đăng nhập ứng dụng di động hiện hữu hoạt động độc lập.
+ */
+export const mobileUsers = mysqlTable("mobile_users", {
+  id: int("id").autoincrement().primaryKey(),
+  username: varchar("username", { length: 64 }).notNull(),
+  displayName: varchar("display_name", { length: 120 }).notNull(),
+  passwordHash: varchar("password_hash", { length: 255 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("mobile_users_username_unique").on(table.username),
+  index("mobile_users_display_name_index").on(table.displayName),
+]);
+
+export const friendRequests = mysqlTable("friend_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  senderId: int("sender_id").notNull(),
+  recipientId: int("recipient_id").notNull(),
+  status: mysqlEnum("status", ["pending", "accepted", "declined"]).default("pending").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  respondedAt: timestamp("responded_at"),
+}, (table) => [
+  uniqueIndex("friend_requests_sender_recipient_unique").on(table.senderId, table.recipientId),
+  index("friend_requests_recipient_status_index").on(table.recipientId, table.status),
+  index("friend_requests_sender_status_index").on(table.senderId, table.status),
+]);
+
+export const callRecords = mysqlTable("call_records", {
+  id: varchar("id", { length: 96 }).primaryKey(),
+  callerId: int("caller_id").notNull(),
+  calleeId: int("callee_id").notNull(),
+  kind: mysqlEnum("kind", ["audio", "video"]).notNull(),
+  status: mysqlEnum("status", ["ringing", "answered", "missed", "declined", "ended"]).default("ringing").notNull(),
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  answeredAt: timestamp("answered_at"),
+  endedAt: timestamp("ended_at"),
+  durationSeconds: int("duration_seconds").default(0).notNull(),
+}, (table) => [
+  index("call_records_caller_started_index").on(table.callerId, table.startedAt),
+  index("call_records_callee_started_index").on(table.calleeId, table.startedAt),
+]);
+
+export type MobileUserRecord = typeof mobileUsers.$inferSelect;
+export type FriendRequestRecord = typeof friendRequests.$inferSelect;
+export type CallRecord = typeof callRecords.$inferSelect;

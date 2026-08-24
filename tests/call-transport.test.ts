@@ -20,7 +20,7 @@ describe("call transport contract", () => {
   });
 
   it("documents all necessary signaling event categories and transparent preview label", () => {
-    expect(REQUIRED_SIGNALING_EVENTS).toContain("call.screen-track");
+    expect(REQUIRED_SIGNALING_EVENTS).toContain("call:screen-share");
     expect(getCallRuntimeLabel(false)).toContain("Bản xem trước");
   });
 });

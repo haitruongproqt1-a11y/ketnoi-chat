@@ -2,7 +2,7 @@ import type { CallKind, IceConfigurationPayload } from "@/shared/chat-types";
 
 import { isExpiredIceConfiguration, validateIceConfiguration } from "./webrtc-config";
 
-export type SignalingEventName = "call.offer" | "call.answer" | "call.ice-candidate" | "call.hangup" | "call.screen-track";
+export type SignalingEventName = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share";
 
 export interface CallLaunchRequest {
   callId: string;
@@ -40,9 +40,9 @@ export function getCallRuntimeLabel(nativeMediaAvailable: boolean): string {
 }
 
 export const REQUIRED_SIGNALING_EVENTS: SignalingEventName[] = [
-  "call.offer",
-  "call.answer",
-  "call.ice-candidate",
-  "call.hangup",
-  "call.screen-track",
+  "call:offer",
+  "call:answer",
+  "call:ice-candidate",
+  "call:hangup",
+  "call:screen-share",
 ];

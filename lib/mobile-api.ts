@@ -1,14 +1,16 @@
 import { Linking, Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 /**
  * Đặt EXPO_PUBLIC_API_URL và EXPO_PUBLIC_SOCKET_URL khi phát triển với server Node.js.
  * Android emulator mặc định dùng 10.0.2.2; thiết bị thật cần IP LAN hoặc HTTPS công khai.
  */
-const localHost = Platform.OS === "android" ? "http://10.0.2.2:3001" : "http://127.0.0.1:3001";
+const localHost = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
+const derivedApiUrl = getApiBaseUrl();
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? localHost;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? derivedApiUrl ?? localHost;
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
