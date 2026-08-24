@@ -1,14 +1,15 @@
 import { Linking, Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 /**
  * Đặt EXPO_PUBLIC_API_URL và EXPO_PUBLIC_SOCKET_URL khi phát triển với server Node.js.
  * Android emulator mặc định dùng 10.0.2.2; thiết bị thật cần IP LAN hoặc HTTPS công khai.
  */
-const localHost = Platform.OS === "android" ? "http://10.0.2.2:3001" : "http://127.0.0.1:3001";
+const localHost = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? localHost;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? getApiBaseUrl() ?? localHost;
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; avatarUrl: string | null; createdAt: string };
@@ -23,6 +24,7 @@ export type FriendRelationship = "friends" | "incoming" | "outgoing" | "none";
 export type UserSearchResult = MobileUser & { relationship: FriendRelationship };
 export type FriendRequest = { id: number; sender: MobileUser; recipient: MobileUser; status: "pending" | "accepted" | "declined"; createdAt: string; respondedAt: string | null };
 export type CallHistoryEntry = { id: string; peer: MobileUser; direction: "incoming" | "outgoing" | "missed"; kind: "audio" | "video"; status: "ringing" | "answered" | "missed" | "declined" | "ended"; startedAt: string; endedAt: string | null; durationSeconds: number };
+export type CallInvite = { callId: string; fromUserId: number; callerName: string; withVideo: boolean; description: RTCSessionDescriptionInit };
 
 async function request<T>(path: string, options: RequestInit = {}, token?: string): Promise<T> {
   const response = await fetch(`${API_URL}${path}`, {
@@ -86,5 +88,7 @@ export const mobileApi = {
   setReadReceiptPreference: (token: string, enabled: boolean) => request<{ readReceiptsEnabled: boolean }>("/api/preferences/read-receipts", { method: "PUT", body: JSON.stringify({ enabled }) }, token),
   callHistory: (token: string, peerId?: number) => request<CallHistoryEntry[]>(`/api/calls${peerId ? `?peerId=${peerId}` : ""}`, {}, token),
   registerPushToken: (token: string, pushToken: string, platform: "ios" | "android") => request<void>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token: pushToken, platform }) }, token),
+  callInvite: (token: string, callId: string) => request<CallInvite>(`/api/calls/${encodeURIComponent(callId)}/invite`, {}, token),
+  declineCall: (token: string, callId: string) => request<void>(`/api/calls/${encodeURIComponent(callId)}/decline`, { method: "POST" }, token),
   iceConfig: (token: string) => request<IceConfig>("/api/webrtc/config", {}, token),
 };

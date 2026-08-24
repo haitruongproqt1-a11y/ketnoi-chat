@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
+import * as Haptics from "expo-haptics";
 import InCallManager from "react-native-incall-manager";
 import { mediaDevices, RTCIceCandidate, RTCPeerConnection, RTCSessionDescription, RTCView } from "react-native-webrtc";
 
@@ -12,6 +13,7 @@ import { mobileApi } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
 import { startCallWaitingTone, startIncomingRingtone, stopCallWaitingTone, stopIncomingRingtone } from "@/lib/sound-feedback";
+import { clearSystemCall, endSystemCall, markSystemCallConnected, presentOutgoingSystemCall, setSystemCallMuted, setSystemCallSpeaker } from "@/lib/callkeep";
 
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 type PreviewCorner = "left" | "right";
@@ -28,7 +30,7 @@ function asDescription(description: { type?: string; sdp?: string }) {
 }
 
 export default function CallScreen() {
-  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video" }>();
+  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode, callId: callIdParam, autoAnswer } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video"; callId?: string; autoAnswer?: "1" }>();
   const peerId = Number(peerIdParam);
   const withVideo = mode !== "audio";
   const { token } = useMobileAuth();
@@ -37,7 +39,7 @@ export default function CallScreen() {
   const localRef = useRef<any>(null);
   const screenRef = useRef<any>(null);
   const candidatesRef = useRef<any[]>([]);
-  const callId = useRef(incomingOffer?.callId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const callId = useRef(incomingOffer?.callId ?? callIdParam ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [localStream, setLocalStream] = useState<any>(null);
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [callState, setCallState] = useState<CallState>(direction === "incoming" ? "incoming" : "connecting");
@@ -51,6 +53,8 @@ export default function CallScreen() {
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
   const [showQuickReplies, setShowQuickReplies] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopCall = (notify = true) => {
     if (notify && peerId) sendSignal("call:hangup", { toUserId: peerId, callId: callId.current });
@@ -61,6 +65,8 @@ export default function CallScreen() {
     screenRef.current?.getTracks().forEach((track: any) => track.stop());
     screenRef.current = null;
     InCallManager.stop();
+    endSystemCall(callId.current);
+    clearSystemCall(callId.current);
     setLocalStream(null);
     setRemoteStream(null);
     setCallState("ended");
@@ -84,7 +90,10 @@ export default function CallScreen() {
       if (event.streams?.[0]) setRemoteStream(event.streams[0]);
     };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") setCallState("connected");
+      if (peer.connectionState === "connected") {
+        markSystemCallConnected(callId.current);
+        setCallState("connected");
+      }
       if (["failed", "disconnected"].includes(peer.connectionState)) {
         setError("Kết nối cuộc gọi đã bị ngắt.");
         setCallState("error");
@@ -105,6 +114,7 @@ export default function CallScreen() {
 
   const makeOutgoingCall = async () => {
     try {
+      presentOutgoingSystemCall({ callId: callId.current, peerId, peerName, withVideo, direction: "outgoing" });
       const stream = await getMedia();
       const peer = await setupPeer();
       stream.getTracks().forEach((track: any) => peer.addTrack(track, stream));
@@ -118,17 +128,22 @@ export default function CallScreen() {
   };
 
   const acceptCall = async () => {
-    if (!incomingOffer?.description) return;
-    callId.current = incomingOffer.callId;
     try {
+      const invite = incomingOffer?.description
+        ? incomingOffer
+        : token && callIdParam
+          ? await mobileApi.callInvite(token, callIdParam)
+          : null;
+      if (!invite?.description) throw new Error("Lời mời cuộc gọi đã hết hạn hoặc không còn khả dụng.");
+      callId.current = invite.callId;
       const stream = await getMedia();
       const peer = await setupPeer();
       stream.getTracks().forEach((track: any) => peer.addTrack(track, stream));
-      await peer.setRemoteDescription(asDescription(incomingOffer.description));
+      await peer.setRemoteDescription(asDescription(invite.description));
       await flushCandidates();
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
-      sendSignal("call:answer", { toUserId: peerId, callId: callId.current, description: answer });
+      sendSignal("call:answer", { toUserId: invite.fromUserId ?? peerId, callId: callId.current, description: answer });
       clearIncomingOffer();
       setCallState("connecting");
     } catch (reason) {
@@ -149,8 +164,13 @@ export default function CallScreen() {
 
   useEffect(() => {
     if (direction !== "incoming") void makeOutgoingCall();
-    return () => stopCall(false);
+    return () => { if (feedbackTimer.current) clearTimeout(feedbackTimer.current); stopCall(false); };
   }, []);
+
+  useEffect(() => {
+    if (autoAnswer !== "1" || direction !== "incoming" || callState !== "incoming") return;
+    void acceptCall();
+  }, [autoAnswer, callState, direction, incomingOffer, token]);
 
   useEffect(() => {
     if (callState !== "incoming") return;
@@ -184,22 +204,34 @@ export default function CallScreen() {
     return () => clearInterval(interval);
   }, [callState]);
 
+  const showFeedback = (message: string) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => undefined);
+    if (feedbackTimer.current) clearTimeout(feedbackTimer.current);
+    setFeedback(message);
+    feedbackTimer.current = setTimeout(() => setFeedback(null), 1800);
+  };
+
   const toggleMute = () => {
     const next = !muted;
     localRef.current?.getAudioTracks().forEach((track: any) => { track.enabled = !next; });
     InCallManager.setMicrophoneMute(next);
+    setSystemCallMuted(callId.current, next);
     setMuted(next);
+    showFeedback(next ? "Đã tắt micro" : "Đã bật micro");
   };
 
   const toggleSpeaker = () => {
     const next = !speakerOn;
     InCallManager.setSpeakerphoneOn(next);
+    setSystemCallSpeaker(callId.current, next);
     setSpeakerOn(next);
+    showFeedback(next ? "Đã bật loa ngoài" : "Đã chuyển về tai nghe");
   };
 
   const toggleCamera = () => {
     localRef.current?.getVideoTracks().forEach((track: any) => { track.enabled = !cameraOn; });
     setCameraOn((value) => !value);
+    showFeedback(cameraOn ? "Đã tắt camera" : "Đã bật camera");
   };
 
   const switchCamera = () => {
@@ -221,6 +253,7 @@ export default function CallScreen() {
     if (cameraTrack) await replaceOutgoingVideo(cameraTrack);
     if (notify && peerId) sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: false });
     setIsScreenSharing(false);
+    if (notify) showFeedback("Đã dừng chia sẻ màn hình");
   };
 
   const toggleScreenShare = async () => {
@@ -238,6 +271,7 @@ export default function CallScreen() {
       screenRef.current = displayStream;
       sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: true });
       setIsScreenSharing(true);
+      showFeedback("Đang chia sẻ màn hình");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể bắt đầu chia sẻ màn hình.");
     }
@@ -285,6 +319,7 @@ export default function CallScreen() {
         <View style={[styles.nameBox, !withVideo && styles.audioNameBox]}>
           <Text numberOfLines={1} style={styles.title}>{withVideo ? peerName : `${audioLabel}: ${peerName}`}</Text>
           <Text style={styles.status}>{status}</Text>
+          <View style={[styles.connectionPill, callState === "connected" && styles.connectionPillReady]}><View style={[styles.connectionDot, callState === "connected" && styles.connectionDotReady]} /><Text style={styles.connectionText}>{callState === "connected" ? "Đã kết nối · P2P bảo mật" : "Đang thiết lập kênh bảo mật"}</Text></View>
         </View>
 
         {withVideo ? (
@@ -296,6 +331,7 @@ export default function CallScreen() {
             <EndCallButton onPress={leave} />
           </View>
         )}
+        {feedback ? <View style={styles.feedbackToast}><Text style={styles.feedbackText}>{feedback}</Text></View> : null}
       </View>
     </ScreenContainer>
   );
@@ -352,6 +388,11 @@ const styles = StyleSheet.create({
   audioNameBox: { paddingTop: 13 },
   title: { maxWidth: "86%", color: "#FFFFFF", fontWeight: "900", fontSize: 18, textAlign: "center" },
   status: { color: "#AAC6E4", marginTop: 4, fontSize: 12 },
+  connectionPill: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 8, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: "#183956" },
+  connectionPillReady: { backgroundColor: "#103F37" },
+  connectionDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#F4B740" },
+  connectionDotReady: { backgroundColor: "#49D2A5" },
+  connectionText: { color: "#CEE0F1", fontSize: 10, fontWeight: "800" },
   controls: { minHeight: 88, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, paddingHorizontal: 16, paddingTop: 4, paddingBottom: 18 },
   videoControls: { minHeight: 142, alignItems: "center", justifyContent: "center", gap: 11, paddingHorizontal: 10, paddingTop: 2, paddingBottom: 15 },
   videoControlRow: { width: "100%", flexDirection: "row", alignItems: "flex-start", justifyContent: "space-around", gap: 2 },
@@ -373,5 +414,7 @@ const styles = StyleSheet.create({
   quickReplyOption: { paddingVertical: 11, borderTopWidth: 1, borderTopColor: "#E4ECF4" },
   quickReplyText: { color: "#315B82", fontSize: 13, lineHeight: 18 },
   quickReplyDismiss: { color: "#1577E8", textAlign: "center", fontSize: 12, fontWeight: "900", marginTop: 8 },
+  feedbackToast: { position: "absolute", left: 28, right: 28, bottom: 154, paddingVertical: 11, paddingHorizontal: 14, borderRadius: 14, backgroundColor: "rgba(13,48,75,0.96)", borderWidth: 1, borderColor: "#4F93C8", shadowColor: "#000000", shadowOpacity: 0.25, shadowRadius: 12, shadowOffset: { width: 0, height: 4 }, elevation: 8 },
+  feedbackText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900", textAlign: "center" },
   pressed: { opacity: 0.62 },
 });

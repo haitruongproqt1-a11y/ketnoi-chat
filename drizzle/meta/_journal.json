@@ -15,6 +15,13 @@
       "when": 1787588179297,
       "tag": "0001_absent_magus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1787589519201,
+      "tag": "0002_rare_ultimatum",
+      "breakpoints": true
     }
   ]
 }

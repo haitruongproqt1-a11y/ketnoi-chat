@@ -6,3 +6,13 @@
 - [x] Sửa luồng bắt đầu, dừng và truyền chia sẻ màn hình phù hợp theo nền tảng.
 - [x] Bổ sung hoặc cập nhật kiểm thử cho các luồng gọi và chia sẻ màn hình.
 - [x] Chạy kiểm tra kiểu dữ liệu, kiểm thử và xác minh bản xem trước.
+- [x] Đánh giá hạ tầng TURN có xác thực và cấu hình biến môi trường an toàn.
+- [x] Bổ sung thông báo đẩy cho cuộc gọi đến và luồng mở màn hình cuộc gọi từ thông báo.
+- [x] Tích hợp CallKit/ConnectionService phù hợp với iOS và Android development build.
+- [x] Cải thiện giao diện màn hình gọi, bộ đếm thời lượng và phản hồi trực quan của điều khiển media.
+- [x] Kiểm thử hồi quy cho signaling, thông báo cuộc gọi và các điều khiển mới.
+- [x] Cài và cấu hình CallKeep tương thích với react-native-webrtc hiện có.
+- [x] Gửi thông báo Expo cho cuộc gọi đến khi người nhận không có Socket.IO hoạt động.
+- [x] Đồng bộ thao tác trả lời/từ chối/kết thúc giữa CallKeep, thông báo và màn hình WebRTC.
+- [x] Hoàn thiện bộ đếm thời lượng, trạng thái kết nối và phản hồi trực quan cho mic/camera/loa/chia sẻ màn hình.
+- [x] Hợp nhất CallKeep và thông báo đẩy với phiên bản giao diện gọi, nhạc chuông và phản hồi âm thanh mới nhất mà không ghi đè chat/media.

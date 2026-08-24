@@ -61,6 +61,7 @@ export const callRecords = mysqlTable("call_records", {
   calleeId: int("callee_id").notNull(),
   kind: mysqlEnum("kind", ["audio", "video"]).notNull(),
   status: mysqlEnum("status", ["ringing", "answered", "missed", "declined", "ended"]).default("ringing").notNull(),
+  offerData: text("offer_data"),
   startedAt: timestamp("started_at").defaultNow().notNull(),
   answeredAt: timestamp("answered_at"),
   endedAt: timestamp("ended_at"),
@@ -70,6 +71,20 @@ export const callRecords = mysqlTable("call_records", {
   index("call_records_callee_started_index").on(table.calleeId, table.startedAt),
 ]);
 
+export const mobilePushTokens = mysqlTable("mobile_push_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  token: varchar("token", { length: 255 }).notNull(),
+  platform: mysqlEnum("platform", ["ios", "android"]).notNull(),
+  active: int("active").default(1).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("mobile_push_tokens_token_unique").on(table.token),
+  index("mobile_push_tokens_user_active_index").on(table.userId, table.active),
+]);
+
 export type MobileUserRecord = typeof mobileUsers.$inferSelect;
 export type FriendRequestRecord = typeof friendRequests.$inferSelect;
 export type CallRecord = typeof callRecords.$inferSelect;
+export type MobilePushTokenRecord = typeof mobilePushTokens.$inferSelect;

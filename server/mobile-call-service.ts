@@ -10,6 +10,7 @@ import { Server as SocketServer, type Socket } from "socket.io";
 import {
   callRecords,
   friendRequests,
+  mobilePushTokens,
   mobileUsers,
   type CallRecord,
   type FriendRequestRecord,
@@ -173,11 +174,18 @@ async function buildFriendRequest(record: FriendRequestRecord) {
   };
 }
 
-async function createCallRecord(callId: string, callerId: number, calleeId: number, kind: CallKind) {
+function normalizeOffer(value: unknown) {
+  if (!value || typeof value !== "object") throw new Error("Lời mời cuộc gọi không hợp lệ.");
+  const serialized = JSON.stringify(value);
+  if (serialized.length > 180_000) throw new Error("Dữ liệu lời mời cuộc gọi quá lớn.");
+  return serialized;
+}
+
+async function createCallRecord(callId: string, callerId: number, calleeId: number, kind: CallKind, description: unknown) {
   const database = await requireDb();
   const existing = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
   if (existing[0]) return existing[0];
-  await database.insert(callRecords).values({ id: callId, callerId, calleeId, kind, status: "ringing" });
+  await database.insert(callRecords).values({ id: callId, callerId, calleeId, kind, status: "ringing", offerData: normalizeOffer(description) });
   const [record] = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
   if (!record) throw new Error("Không thể tạo phiên cuộc gọi.");
   return record;
@@ -198,6 +206,34 @@ async function finishCall(callId: string, reason: CallReason) {
   const status = reason === "ended" ? "ended" : reason;
   await database.update(callRecords).set({ status, endedAt, durationSeconds }).where(eq(callRecords.id, callId));
   return { ...record, status, endedAt, durationSeconds };
+}
+
+async function sendIncomingCallPush(calleeId: number, caller: MobileUserRecord, callId: string, withVideo: boolean) {
+  const database = await requireDb();
+  const tokens = await database.select().from(mobilePushTokens).where(and(eq(mobilePushTokens.userId, calleeId), eq(mobilePushTokens.active, 1)));
+  const targets = tokens.filter((item) => item.token.startsWith("ExponentPushToken[") || item.token.startsWith("ExpoPushToken["));
+  if (!targets.length) return false;
+  const url = `/call?peerId=${caller.id}&peerName=${encodeURIComponent(caller.displayName)}&direction=incoming&mode=${withVideo ? "video" : "audio"}&callId=${encodeURIComponent(callId)}`;
+  const body = targets.map((item) => ({
+    to: item.token,
+    title: withVideo ? "Cuộc gọi video đến" : "Cuộc gọi thoại đến",
+    body: `${caller.displayName} đang gọi cho bạn`,
+    sound: "default",
+    priority: "high",
+    channelId: "calls",
+    categoryId: "incoming-call",
+    data: { type: "incoming_call", callId, fromUserId: caller.id, callerName: caller.displayName, withVideo, url },
+  }));
+  try {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
 }
 
 async function listCallHistory(userId: number, peerId?: number) {
@@ -361,6 +397,39 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     res.json(await listCallHistory(user.id, peerId));
   }));
 
+  app.get("/api/calls/:callId/invite", protectedRoute(async (req, res, user) => {
+    const callId = validCallId(req.params.callId);
+    if (!callId) throw new Error("Mã cuộc gọi không hợp lệ.");
+    const database = await requireDb();
+    const [record] = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
+    if (!record || record.calleeId !== user.id || !record.offerData) throw new Error("Không tìm thấy lời mời cuộc gọi.");
+    const caller = await getMobileUser(record.callerId);
+    if (!caller) throw new Error("Không tìm thấy người gọi.");
+    const description = JSON.parse(record.offerData) as { type?: string; sdp?: string };
+    if (!description.type || !description.sdp) throw new Error("Lời mời cuộc gọi không hợp lệ.");
+    res.json({ callId, fromUserId: caller.id, callerName: caller.displayName, withVideo: record.kind === "video", description });
+  }));
+
+  app.post("/api/calls/:callId/decline", protectedRoute(async (req, res, user) => {
+    const callId = validCallId(req.params.callId);
+    if (!callId) throw new Error("Mã cuộc gọi không hợp lệ.");
+    const database = await requireDb();
+    const [record] = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
+    if (!record || record.calleeId !== user.id) throw new Error("Không tìm thấy cuộc gọi đến.");
+    await finishCall(callId, "declined");
+    io.to(`mobile-user:${record.callerId}`).emit("call:hangup", { fromUserId: user.id, callId, reason: "declined" });
+    res.status(204).end();
+  }));
+
+  app.post("/api/push-tokens", protectedRoute(async (req, res, user) => {
+    const pushToken = safeText(req.body?.token, 255);
+    const platform = req.body?.platform === "ios" ? "ios" : req.body?.platform === "android" ? "android" : null;
+    if (!platform || !/^(ExponentPushToken|ExpoPushToken)\[[A-Za-z0-9_-]+\]$/.test(pushToken)) throw new Error("Token thông báo đẩy không hợp lệ.");
+    const database = await requireDb();
+    await database.insert(mobilePushTokens).values({ userId: user.id, token: pushToken, platform, active: 1 }).onDuplicateKeyUpdate({ set: { userId: user.id, platform, active: 1, updatedAt: new Date() } });
+    res.status(204).end();
+  }));
+
   app.get("/api/webrtc/config", protectedRoute(async (_req, res) => {
     const turnUrls = safeText(process.env.WEBRTC_TURN_URL, 1000).split(",").map((url) => url.trim()).filter(Boolean);
     const turnUsername = safeText(process.env.WEBRTC_TURN_USERNAME, 256);
@@ -399,7 +468,7 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
       try {
         await ensureCallable(user.id, peerId);
         if (event === "call:offer") {
-          await createCallRecord(callId, user.id, peerId, payload.withVideo ? "video" : "audio");
+          await createCallRecord(callId, user.id, peerId, payload.withVideo ? "video" : "audio", payload.description);
         } else if (event === "call:answer") {
           await markCallAnswered(callId);
         } else if (event === "call:hangup") {
@@ -407,8 +476,11 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
         }
         const targetSockets = onlineSockets.get(peerId);
         if (!targetSockets?.size && event === "call:offer") {
-          await finishCall(callId, "missed");
-          socket.emit("call:hangup", { fromUserId: peerId, callId, reason: "missed" });
+          const delivered = await sendIncomingCallPush(peerId, user, callId, Boolean(payload.withVideo));
+          if (!delivered) {
+            await finishCall(callId, "missed");
+            socket.emit("call:hangup", { fromUserId: peerId, callId, reason: "missed" });
+          }
           return;
         }
         io.to(`mobile-user:${peerId}`).emit(event, {

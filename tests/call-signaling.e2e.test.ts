@@ -62,6 +62,15 @@ describe.skipIf(!shouldRun)("call signaling end-to-end", () => {
     callerSocket.emit("call:offer", { toUserId: callee.user.id, callId, withVideo: true, description: { type: "offer", sdp: "test-offer" } });
     await expect(offer).resolves.toMatchObject({ callId, fromUserId: caller.user.id });
 
+    const pushTokenResponse = await fetch(`${baseUrl}/api/push-tokens`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${callee.token}` },
+      body: JSON.stringify({ token: `ExpoPushToken[calltest${Date.now()}]`, platform: "android" }),
+    });
+    expect(pushTokenResponse.status).toBe(204);
+    const savedInvite = await request<{ callId: string; fromUserId: number; withVideo: boolean; description: { type: string; sdp: string } }>(`/api/calls/${callId}/invite`, {}, callee.token);
+    expect(savedInvite).toMatchObject({ callId, fromUserId: caller.user.id, withVideo: true, description: { type: "offer", sdp: "test-offer" } });
+
     const answer = once<SignalPayload>(callerSocket, "call:answer", (payload) => payload.callId === callId);
     calleeSocket.emit("call:answer", { toUserId: caller.user.id, callId, description: { type: "answer", sdp: "test-answer" } });
     await expect(answer).resolves.toMatchObject({ callId, fromUserId: callee.user.id });
