@@ -15,6 +15,16 @@ import { optimizeMedia } from "@/lib/media-optimizer";
 import { mobileApi, type CallHistoryEntry, type MobileMessage, type MobileUser } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 
+const CHAT_WALLPAPERS = [
+  { id: "sky", label: "Trời xanh", color: "#F4F8FD", chip: "#CFE8FF" },
+  { id: "lavender", label: "Tím nhạt", color: "#F8F5FD", chip: "#E3D6FF" },
+  { id: "mint", label: "Bạc hà", color: "#F2FBF8", chip: "#CDEFE4" },
+  { id: "peach", label: "Đào nhạt", color: "#FFF8F2", chip: "#FFE0C7" },
+  { id: "night", label: "Xám dịu", color: "#F1F4F8", chip: "#D5DEE8" },
+] as const;
+const EMOJIS = ["😀", "😂", "🥰", "😮", "😢", "😡", "👍", "❤️", "🎉", "🙏", "🔥", "✨"];
+const STICKERS = ["👍", "❤️", "😂", "🎊", "🤝", "💬"];
+
 export default function ChatScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const peerId = Number(id);
@@ -35,11 +45,15 @@ export default function ChatScreen() {
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [showCallHistory, setShowCallHistory] = useState(false);
   const [isDraftPreviewExpanded, setIsDraftPreviewExpanded] = useState(true);
+  const [wallpaperId, setWallpaperId] = useState<(typeof CHAT_WALLPAPERS)[number]["id"]>("sky");
+  const [showWallpaperPicker, setShowWallpaperPicker] = useState(false);
+  const [showExpressionPanel, setShowExpressionPanel] = useState(false);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadCancellation = useRef<(() => void) | null>(null);
   const uploadWasCanceled = useRef(false);
   const draftHydrated = useRef(false);
   const draftStorageKey = `ketnoi.chat-draft.v1.${user?.id ?? "guest"}.${peerId}`;
+  const wallpaperStorageKey = `ketnoi.chat-wallpaper.v1.${user?.id ?? "guest"}.${peerId}`;
 
   const markRead = useCallback(() => {
     if (token && Number.isInteger(peerId)) void mobileApi.markMessagesRead(token, peerId).catch(() => undefined);
@@ -61,6 +75,12 @@ export default function ChatScreen() {
   }, [peerId, token]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!user || !Number.isInteger(peerId)) return;
+    void AsyncStorage.getItem(wallpaperStorageKey).then((stored) => {
+      if (CHAT_WALLPAPERS.some((item) => item.id === stored)) setWallpaperId(stored as (typeof CHAT_WALLPAPERS)[number]["id"]);
+    }).catch(() => undefined);
+  }, [peerId, user, wallpaperStorageKey]);
   useEffect(() => {
     draftHydrated.current = false;
     if (!user || !Number.isInteger(peerId)) return;
@@ -182,20 +202,25 @@ export default function ChatScreen() {
   const avatar = peer ? { id: String(peer.id), name: peer.displayName, initials: peer.displayName.split(" ").map((word) => word[0]).slice(0, 2).join(""), avatarColor: ["#8A63D2", "#D35D77", "#2F9E8F", "#3269C6"][peer.id % 4], avatarUrl: peer.avatarUrl ? mobileApi.mediaUrl(peer.avatarUrl) : null, presence: online ? "online" as const : "offline" as const } : null;
   const draftPreview = draft.trim() || (pendingMedia.length ? "Chưa có chú thích chung cho nhóm tệp." : "Nội dung đang viết sẽ hiển thị tại đây.");
   const draftMode = pendingMedia.length ? `Chú thích chung · ${pendingMedia.length} tệp đính kèm` : "Tin nhắn mới";
+  const wallpaper = CHAT_WALLPAPERS.find((item) => item.id === wallpaperId) ?? CHAT_WALLPAPERS[0];
+  const chooseWallpaper = (nextId: (typeof CHAT_WALLPAPERS)[number]["id"]) => { setWallpaperId(nextId); setShowWallpaperPicker(false); void AsyncStorage.setItem(wallpaperStorageKey, nextId); };
+  const appendExpression = (value: string) => handleDraft(`${draft}${draft ? " " : ""}${value}`);
 
-  return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#F4F7FB]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}><View style={[styles.header, chatLayoutStyles.header]}><IconButton name="chevron.left" onPress={() => router.back()} accessibilityLabel="Quay lại" /><View style={[styles.peerHeader, chatLayoutStyles.peerHeader]}>{avatar ? <Avatar participant={avatar} size={38} /> : null}<View style={styles.peerCopy}><Text numberOfLines={1} style={styles.peerName}>{peer?.displayName ?? "Cuộc trò chuyện"}</Text><Text numberOfLines={1} style={[styles.peerStatus, chatLayoutStyles.peerStatus, (online || peerTyping) && styles.online]}>{peerTyping ? "Đang gõ…" : online ? "Đang hoạt động" : peer ? `@${peer.username}` : ""}</Text></View></View><View style={[styles.callActions, chatLayoutStyles.callActions]}><IconButton name="clock.fill" onPress={() => void toggleCallHistory()} accessibilityLabel="Lịch sử cuộc gọi" color="#4B7AA6" /><IconButton name="phone.fill" onPress={() => peer && router.push({ pathname: "/call", params: { peerId: String(peer.id), peerName: peer.displayName, mode: "audio" } })} accessibilityLabel="Gọi thoại" color="#1577E8" /><IconButton name="video.fill" onPress={() => peer && router.push({ pathname: "/call", params: { peerId: String(peer.id), peerName: peer.displayName, mode: "video" } })} accessibilityLabel="Gọi video" color="#1577E8" /></View></View>
-    {loading ? <View style={styles.loading}><ActivityIndicator color="#1577E8" /></View> : <FlatList data={messages} keyExtractor={(item) => String(item.id)} contentContainerStyle={styles.messageList} renderItem={({ item }) => <MessageBubble message={item} isMine={item.senderId === user?.id} onDownload={() => void downloadMedia(item)} onRevoke={() => void revokeMedia(item)} onForward={() => void beginForward(item)} />} ListEmptyComponent={<Text style={styles.empty}>Chưa có tin nhắn. Hãy gửi lời chào.</Text>} />}
+  return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#F4F7FB]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}><View style={[styles.header, chatLayoutStyles.header]}><IconButton name="chevron.left" onPress={() => router.back()} accessibilityLabel="Quay lại" /><View style={[styles.peerHeader, chatLayoutStyles.peerHeader]}>{avatar ? <Avatar participant={avatar} size={38} /> : null}<View style={styles.peerCopy}><Text numberOfLines={1} style={styles.peerName}>{peer?.displayName ?? "Cuộc trò chuyện"}</Text><Text numberOfLines={1} style={[styles.peerStatus, chatLayoutStyles.peerStatus, (online || peerTyping) && styles.online]}>{peerTyping ? "Đang gõ…" : online ? "Đang hoạt động" : peer ? `@${peer.username}` : ""}</Text></View></View><View style={[styles.callActions, chatLayoutStyles.callActions]}><Pressable onPress={() => setShowWallpaperPicker((value) => !value)} accessibilityLabel="Đổi hình nền cuộc trò chuyện" style={({ pressed }) => [chatCustomStyles.wallpaperButton, pressed && styles.pressed]}><Text style={chatCustomStyles.wallpaperButtonText}>◈</Text></Pressable><IconButton name="clock.fill" onPress={() => void toggleCallHistory()} accessibilityLabel="Lịch sử cuộc gọi" color="#4B7AA6" /><IconButton name="phone.fill" onPress={() => peer && router.push({ pathname: "/call", params: { peerId: String(peer.id), peerName: peer.displayName, mode: "audio" } })} accessibilityLabel="Gọi thoại" color="#1577E8" /><IconButton name="video.fill" onPress={() => peer && router.push({ pathname: "/call", params: { peerId: String(peer.id), peerName: peer.displayName, mode: "video" } })} accessibilityLabel="Gọi video" color="#1577E8" /></View></View>
+    {showWallpaperPicker ? <View style={chatCustomStyles.wallpaperSheet}><View style={chatCustomStyles.sheetHeader}><Text style={chatCustomStyles.sheetTitle}>Hình nền cuộc trò chuyện</Text><Pressable onPress={() => setShowWallpaperPicker(false)}><Text style={styles.dismiss}>Đóng</Text></Pressable></View><View style={chatCustomStyles.wallpaperChoices}>{CHAT_WALLPAPERS.map((item) => <Pressable key={item.id} onPress={() => chooseWallpaper(item.id)} style={[chatCustomStyles.wallpaperChoice, wallpaperId === item.id && chatCustomStyles.wallpaperChoiceSelected]}><View style={[chatCustomStyles.wallpaperSwatch, { backgroundColor: item.color, borderColor: item.chip }]}>{wallpaperId === item.id ? <Text style={chatCustomStyles.wallpaperCheck}>✓</Text> : null}</View><Text style={chatCustomStyles.wallpaperLabel}>{item.label}</Text></Pressable>)}</View></View> : null}
+    {loading ? <View style={[styles.loading, { backgroundColor: wallpaper.color }]}><ActivityIndicator color="#1577E8" /></View> : <FlatList style={{ backgroundColor: wallpaper.color }} data={messages} keyExtractor={(item) => String(item.id)} contentContainerStyle={styles.messageList} renderItem={({ item }) => <MessageBubble message={item} isMine={item.senderId === user?.id} onDownload={() => void downloadMedia(item)} onRevoke={() => void revokeMedia(item)} onForward={() => void beginForward(item)} />} ListEmptyComponent={<Text style={styles.empty}>Chưa có tin nhắn. Hãy gửi lời chào.</Text>} />}
     {peerTyping ? <View style={styles.typingBar}><Text style={styles.typingText}>{peer?.displayName ?? "Người kia"} đang gõ…</Text><View style={styles.typingDots}><View style={styles.dot} /><View style={[styles.dot, styles.dotMiddle]} /><View style={styles.dot} /></View></View> : null}
     {error ? <View style={styles.error}><Text style={styles.errorText}>{error}</Text><Pressable onPress={() => setError("")}><Text style={styles.dismiss}>Bỏ</Text></Pressable></View> : null}
     {showCallHistory ? <View style={styles.historySheet}><View style={styles.historyHeader}><Text style={styles.historyTitle}>Lịch sử cuộc gọi</Text><Pressable onPress={() => setShowCallHistory(false)}><Text style={styles.dismiss}>Đóng</Text></Pressable></View>{callHistory.length ? callHistory.slice(0, 6).map((entry) => <View key={entry.id} style={styles.historyItem}><Text style={styles.historyItemTitle}>{entry.kind === "video" ? "Gọi video" : "Gọi thoại"} · {entry.status === "missed" ? "Nhỡ" : entry.status === "declined" ? "Bị từ chối" : entry.direction === "outgoing" ? "Đã gọi" : "Đã nghe"}</Text><Text style={styles.historyItemDetail}>{new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(`${entry.startedAt}Z`))}{entry.durationSeconds ? ` · ${formatCallDuration(entry.durationSeconds)}` : ""}</Text></View>) : <Text style={styles.historyEmpty}>Chưa có cuộc gọi nào trong đoạn chat này.</Text>}</View> : null}
     {forwarding ? <View style={styles.forwardSheet}><View style={styles.historyHeader}><Text style={styles.forwardTitle}>Chuyển tiếp đến</Text><Pressable onPress={() => setForwarding(null)}><Text style={styles.dismiss}>Đóng</Text></Pressable></View><Text style={styles.forwardHint}>Chọn một hoặc nhiều người nhận.</Text>{forwardTargets.length ? forwardTargets.map((target) => <Pressable key={target.id} onPress={() => toggleForwardTarget(target.id)} style={({ pressed }) => [styles.forwardTarget, forwardTargetIds.includes(target.id) && styles.forwardTargetSelected, pressed && styles.pressed]}><View style={[styles.forwardCheck, forwardTargetIds.includes(target.id) && styles.forwardCheckSelected]}>{forwardTargetIds.includes(target.id) ? <Text style={styles.forwardCheckMark}>✓</Text> : null}</View><Text style={styles.forwardTargetText}>{target.displayName} · @{target.username}</Text></Pressable>) : <Text style={styles.historyEmpty}>Không có cuộc trò chuyện khác để chuyển tiếp.</Text>}{forwardTargets.length ? <Pressable onPress={() => void forwardToSelected()} disabled={!forwardTargetIds.length} style={({ pressed }) => [styles.forwardSubmit, !forwardTargetIds.length && styles.forwardSubmitDisabled, pressed && styles.pressed]}><Text style={styles.forwardSubmitText}>Chuyển tiếp {forwardTargetIds.length ? `(${forwardTargetIds.length})` : ""}</Text></Pressable> : null}</View> : null}
     {pendingMedia.length ? <View style={styles.mediaComposer}><View style={styles.historyHeader}><View><Text style={styles.mediaComposerTitle}>Chú thích riêng cho từng tệp</Text><Text style={styles.mediaComposerHint}>Nội dung composer bên dưới là chú thích chung cho cả nhóm.</Text></View><Pressable onPress={() => setPendingMedia([])} disabled={uploading}><Text style={styles.dismiss}>Hủy chọn</Text></Pressable></View>{pendingMedia.map(({ asset, caption }, index) => <View key={`${asset.uri}-${index}`} style={styles.pendingMediaRow}>{asset.type === "image" ? <Image source={{ uri: asset.uri }} style={styles.pendingThumbnail} /> : <View style={styles.pendingVideo}><Text style={styles.pendingVideoText}>VIDEO</Text></View>}<TextInput value={caption} onChangeText={(value) => updatePendingCaption(asset.uri, value)} placeholder={`Chú thích tệp ${index + 1}`} placeholderTextColor="#8493A5" style={styles.pendingCaption} multiline editable={!uploading} /></View>)}<Pressable onPress={() => void sendPendingMedia()} disabled={uploading} style={({ pressed }) => [styles.mediaSubmit, uploading && styles.forwardSubmitDisabled, pressed && styles.pressed]}><Text style={styles.mediaSubmitText}>{uploading ? "Đang gửi…" : `Gửi ${pendingMedia.length} tệp`}</Text></Pressable></View> : null}
     {uploading ? <View style={mediaStyles.uploadTrack}><View style={[mediaStyles.uploadFill, { width: `${Math.max(5, Math.round(uploadProgress * 100))}%` }]} /><Text style={mediaStyles.uploadLabel}>Đang tải {Math.round(uploadProgress * 100)}%</Text><Pressable onPress={cancelMediaUpload} style={mediaStyles.cancelUpload}><Text style={mediaStyles.cancelUploadText}>Hủy</Text></Pressable></View> : null}
+    {showExpressionPanel ? <View style={chatCustomStyles.expressionPanel}><View style={chatCustomStyles.sheetHeader}><Text style={chatCustomStyles.sheetTitle}>Biểu tượng cảm xúc & sticker</Text><Pressable onPress={() => setShowExpressionPanel(false)}><Text style={styles.dismiss}>Đóng</Text></Pressable></View><Text style={chatCustomStyles.expressionLabel}>Emoji</Text><View style={chatCustomStyles.expressionGrid}>{EMOJIS.map((item) => <Pressable key={item} onPress={() => appendExpression(item)} style={({ pressed }) => [chatCustomStyles.expressionButton, pressed && styles.pressed]}><Text style={chatCustomStyles.emojiText}>{item}</Text></Pressable>)}</View><Text style={chatCustomStyles.expressionLabel}>Sticker nhanh</Text><View style={chatCustomStyles.stickerGrid}>{STICKERS.map((item) => <Pressable key={item} onPress={() => appendExpression(item)} style={({ pressed }) => [chatCustomStyles.stickerButton, pressed && styles.pressed]}><Text style={chatCustomStyles.stickerText}>{item}</Text></Pressable>)}</View></View> : null}
     <View style={composerStyles.shell}>
       <View style={composerStyles.statusRow}><Text style={composerStyles.statusLabel}>{draftMode}</Text><View style={composerStyles.statusActions}><Pressable onPress={() => setIsDraftPreviewExpanded((value) => !value)} accessibilityLabel={isDraftPreviewExpanded ? "Thu gọn khung đang soạn" : "Mở rộng khung đang soạn"} style={({ pressed }) => [composerStyles.previewToggle, pressed && styles.pressed]}><Text style={composerStyles.previewToggleText}>{isDraftPreviewExpanded ? "Thu gọn" : "Xem trước"}</Text></Pressable><Text style={composerStyles.counter}>{draft.length}/4000</Text></View></View>
       {isDraftPreviewExpanded ? <View style={[composerStyles.preview, draft.trim() && composerStyles.previewActive]}><Text style={composerStyles.previewCaption}>ĐANG SOẠN</Text><Text numberOfLines={2} style={[composerStyles.previewText, !draft.trim() && composerStyles.previewPlaceholder]}>{draftPreview}</Text></View> : null}
       <View style={composerStyles.actionRow}>
-        <Pressable onPress={() => void pickMedia()} disabled={!peer || uploading || pendingMedia.length > 0} accessibilityLabel="Chọn ảnh hoặc video" style={({ pressed }) => [composerStyles.attach, (!peer || uploading || pendingMedia.length > 0) && composerStyles.attachDisabled, pressed && styles.pressed]}>{uploading ? <ActivityIndicator size="small" color="#1577E8" /> : <Text style={composerStyles.attachText}>＋</Text>}</Pressable>
+        <Pressable onPress={() => void pickMedia()} disabled={!peer || uploading || pendingMedia.length > 0} accessibilityLabel="Chọn ảnh hoặc video" style={({ pressed }) => [composerStyles.attach, (!peer || uploading || pendingMedia.length > 0) && composerStyles.attachDisabled, pressed && styles.pressed]}>{uploading ? <ActivityIndicator size="small" color="#1577E8" /> : <Text style={composerStyles.attachText}>＋</Text>}</Pressable><Pressable onPress={() => setShowExpressionPanel((value) => !value)} accessibilityLabel="Mở emoji và sticker" style={({ pressed }) => [chatCustomStyles.expressionTrigger, showExpressionPanel && chatCustomStyles.expressionTriggerActive, pressed && styles.pressed]}><Text style={chatCustomStyles.expressionTriggerText}>☺</Text></Pressable>
         <TextInput value={draft} onChangeText={handleDraft} onSubmitEditing={() => void send()} placeholder={uploading ? "Đang tải media…" : pendingMedia.length ? "Thêm chú thích chung cho nhóm" : "Viết tin nhắn…"} placeholderTextColor="#8493A5" style={composerStyles.input} returnKeyType="send" multiline editable={!uploading} accessibilityLabel="Nội dung tin nhắn đang soạn" />
         <Pressable onPress={() => void send()} disabled={!draft.trim() || !peer || uploading} accessibilityLabel="Gửi tin nhắn" style={({ pressed }) => [composerStyles.send, (!draft.trim() || !peer || uploading) && composerStyles.sendDisabled, pressed && styles.pressed]}><IconSymbol name="paperplane.fill" size={19} color="#FFFFFF" /></Pressable>
       </View>
@@ -232,6 +257,31 @@ const chatLayoutStyles = StyleSheet.create({
   mineMetadata: { alignSelf: "flex-end" },
   time: { marginTop: 0, textAlign: "left", fontSize: 10 },
   readReceipt: { marginTop: 0, textAlign: "left", fontSize: 10 },
+});
+
+const chatCustomStyles = StyleSheet.create({
+  wallpaperButton: { width: 32, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10, marginRight: 1, backgroundColor: "#EAF5FF" },
+  wallpaperButtonText: { color: "#287BC1", fontSize: 18, fontWeight: "900" },
+  wallpaperSheet: { marginHorizontal: 12, marginBottom: 7, padding: 13, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D8E7F5" },
+  sheetHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  sheetTitle: { flex: 1, color: "#173451", fontSize: 13, fontWeight: "900" },
+  wallpaperChoices: { flexDirection: "row", flexWrap: "wrap", gap: 11, marginTop: 12 },
+  wallpaperChoice: { width: 62, alignItems: "center", gap: 5 },
+  wallpaperChoiceSelected: { opacity: 1 },
+  wallpaperSwatch: { width: 45, height: 45, alignItems: "center", justifyContent: "center", borderRadius: 15, borderWidth: 3 },
+  wallpaperCheck: { color: "#2177BC", fontSize: 17, fontWeight: "900" },
+  wallpaperLabel: { color: "#627C96", fontSize: 9, fontWeight: "700" },
+  expressionPanel: { marginHorizontal: 12, marginBottom: 7, padding: 13, borderRadius: 16, backgroundColor: "#FFFFFF", borderWidth: 1, borderColor: "#D8E7F5" },
+  expressionLabel: { marginTop: 11, marginBottom: 6, color: "#6D88A2", fontSize: 10, fontWeight: "900", letterSpacing: 0.2 },
+  expressionGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  expressionButton: { width: 37, height: 37, alignItems: "center", justifyContent: "center", borderRadius: 11, backgroundColor: "#F4F8FC" },
+  emojiText: { fontSize: 22 },
+  stickerGrid: { flexDirection: "row", gap: 8 },
+  stickerButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center", borderRadius: 15, borderWidth: 1, borderColor: "#DDE9F4", backgroundColor: "#F9FBFD" },
+  stickerText: { fontSize: 28 },
+  expressionTrigger: { width: 36, height: 44, alignItems: "center", justifyContent: "center", borderRadius: 13, borderWidth: 1, borderColor: "#E0EAF3", backgroundColor: "#F7FAFD" },
+  expressionTriggerActive: { borderColor: "#A9D1F5", backgroundColor: "#EAF5FF" },
+  expressionTriggerText: { color: "#287BC1", fontSize: 22 },
 });
 
 const composerStyles = StyleSheet.create({

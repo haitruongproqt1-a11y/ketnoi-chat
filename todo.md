@@ -84,3 +84,5 @@
 - [x] Bảo toàn kiến trúc chat/media và WebRTC/Socket.io hiện có khi tích hợp tính năng mới.
 - [x] Chuyển đổi âm thanh cuộc gọi sang MP3 dưới 500 KB để lưu checkpoint.
 - [x] Tinh chỉnh bong bóng tin nhắn, header an toàn và metadata theo trải nghiệm chat Zalo.
+- [x] Thêm hình nền riêng và được lưu theo từng cuộc trò chuyện.
+- [x] Bổ sung bảng chọn emoji và sticker trong khung soạn tin.
