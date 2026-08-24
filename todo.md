@@ -20,3 +20,8 @@
 - [x] Xây dựng màn hình Video Call dùng camera/micro với signaling Offer/Answer/ICE qua Socket.io.
 - [x] Khởi động backend Node.js/Socket.io nội bộ ở cổng 3001 và xác nhận health endpoint từ mobile.
 - [x] Resize và nén bốn biểu tượng launcher/splash/favicon xuống 1024×1024 để lưu checkpoint.
+- [x] Mở rộng backend và mobile cho tìm kiếm người dùng, lời mời và quản lý bạn bè.
+- [x] Ghi nhận và hiển thị lịch sử cuộc gọi với thời gian, thời lượng và trạng thái.
+- [x] Đăng ký push token, tạo notification tin nhắn/cuộc gọi và xử lý thao tác mở app.
+- [x] Tạo cấu hình EAS Build, tài liệu APK development build và ZIP mã nguồn bàn giao.
+- [ ] Xác minh remote push notification trên development build cài ở thiết bị thật.

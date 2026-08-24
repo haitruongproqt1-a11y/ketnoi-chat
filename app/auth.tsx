@@ -10,6 +10,7 @@ export default function AuthScreen() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [username, setUsername] = useState("");
   const [displayName, setDisplayName] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -21,7 +22,7 @@ export default function AuthScreen() {
     setLoading(true);
     try {
       if (mode === "login") await signIn(username, password);
-      else await register(username, displayName, password);
+      else await register(username, displayName, password, email);
       router.replace("/(tabs)");
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể xác thực tài khoản.");
@@ -33,6 +34,7 @@ export default function AuthScreen() {
       <View style={styles.hero}><View style={styles.mark}><View style={styles.bubble} /><View style={styles.spark} /></View><Text style={styles.title}>Kết Nối</Text><Text style={styles.subtitle}>Nhắn tin và gọi trực tiếp, gần gũi mỗi ngày.</Text></View>
       <View style={styles.card}><View style={styles.modeToggle}><Pressable onPress={() => { setMode("login"); setError(""); }} style={({ pressed }) => [styles.modeButton, mode === "login" && styles.modeSelected, pressed && styles.pressed]}><Text style={[styles.modeText, mode === "login" && styles.modeTextSelected]}>Đăng nhập</Text></Pressable><Pressable onPress={() => { setMode("register"); setError(""); }} style={({ pressed }) => [styles.modeButton, mode === "register" && styles.modeSelected, pressed && styles.pressed]}><Text style={[styles.modeText, mode === "register" && styles.modeTextSelected]}>Đăng ký</Text></Pressable></View>
         {mode === "register" ? <Field label="Tên hiển thị" value={displayName} onChangeText={setDisplayName} placeholder="Ví dụ: Minh Anh" autoCapitalize="words" /> : null}
+        {mode === "register" ? <Field label="Email" value={email} onChangeText={setEmail} placeholder="minhanh@example.com" autoCapitalize="none" keyboardType="email-address" /> : null}
         <Field label="Tên người dùng" value={username} onChangeText={setUsername} placeholder="minhanh_01" autoCapitalize="none" />
         <Field label="Mật khẩu" value={password} onChangeText={setPassword} placeholder="Tối thiểu 8 ký tự" secureTextEntry />
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
@@ -43,7 +45,7 @@ export default function AuthScreen() {
   </ScreenContainer>;
 }
 
-function Field({ label, ...props }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; secureTextEntry?: boolean; autoCapitalize?: "none" | "words" }) {
+function Field({ label, ...props }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; secureTextEntry?: boolean; autoCapitalize?: "none" | "words"; keyboardType?: "default" | "email-address" }) {
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput {...props} style={styles.input} placeholderTextColor="#8A99AB" returnKeyType="next" /></View>;
 }
 

@@ -100,6 +100,14 @@ const config: ExpoConfig = {
       },
     ],
     [
+      "expo-notifications",
+      {
+        defaultChannel: "messages",
+        color: "#1577E8",
+        enableBackgroundRemoteNotifications: true,
+      },
+    ],
+    [
       "expo-video",
       {
         supportsBackgroundPlayback: true,

@@ -10,7 +10,7 @@ type AuthContextValue = {
   user: MobileUser | null;
   loading: boolean;
   signIn: (username: string, password: string) => Promise<void>;
-  register: (username: string, displayName: string, password: string) => Promise<void>;
+  register: (username: string, displayName: string, password: string, email?: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (username: string, password: string) => save(await mobileApi.login(username.trim(), password)), [save]);
-  const register = useCallback(async (username: string, displayName: string, password: string) => save(await mobileApi.register(username.trim(), displayName.trim(), password)), [save]);
+  const register = useCallback(async (username: string, displayName: string, password: string, email?: string) => save(await mobileApi.register(username.trim(), displayName.trim(), password, email?.trim())), [save]);
   const signOut = useCallback(async () => { setToken(null); setUser(null); await AsyncStorage.removeItem(SESSION_KEY); }, []);
 
   const value = useMemo(() => ({ token, user, loading, signIn, register, signOut }), [loading, register, signIn, signOut, token, user]);
