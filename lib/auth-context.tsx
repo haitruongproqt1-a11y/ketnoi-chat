@@ -11,6 +11,7 @@ type AuthContextValue = {
   loading: boolean;
   signIn: (username: string, password: string, remember?: boolean) => Promise<void>;
   register: (username: string, displayName: string, password: string, email?: string, remember?: boolean) => Promise<void>;
+  updateCurrentUser: (user: MobileUser) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -41,9 +42,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signIn = useCallback(async (username: string, password: string, remember = true) => save(await mobileApi.login(username.trim(), password), remember), [save]);
   const register = useCallback(async (username: string, displayName: string, password: string, email?: string, remember = true) => save(await mobileApi.register(username.trim(), displayName.trim(), password, email?.trim()), remember), [save]);
+  const updateCurrentUser = useCallback(async (nextUser: MobileUser) => { setUser(nextUser); const stored = await AsyncStorage.getItem(SESSION_KEY); if (!stored) return; const payload = JSON.parse(stored) as AuthPayload; await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ ...payload, user: nextUser })); }, []);
   const signOut = useCallback(async () => { setToken(null); setUser(null); await AsyncStorage.removeItem(SESSION_KEY); }, []);
 
-  const value = useMemo(() => ({ token, user, loading, signIn, register, signOut }), [loading, register, signIn, signOut, token, user]);
+  const value = useMemo(() => ({ token, user, loading, signIn, register, updateCurrentUser, signOut }), [loading, register, signIn, signOut, token, updateCurrentUser, user]);
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 

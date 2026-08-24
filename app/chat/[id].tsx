@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, FlatList, Image, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as VideoThumbnails from "expo-video-thumbnails";
@@ -33,9 +34,12 @@ export default function ChatScreen() {
   const [pendingMedia, setPendingMedia] = useState<Array<{ asset: ImagePicker.ImagePickerAsset; caption: string }>>([]);
   const [callHistory, setCallHistory] = useState<CallHistoryEntry[]>([]);
   const [showCallHistory, setShowCallHistory] = useState(false);
+  const [isDraftPreviewExpanded, setIsDraftPreviewExpanded] = useState(true);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const uploadCancellation = useRef<(() => void) | null>(null);
   const uploadWasCanceled = useRef(false);
+  const draftHydrated = useRef(false);
+  const draftStorageKey = `ketnoi.chat-draft.v1.${user?.id ?? "guest"}.${peerId}`;
 
   const markRead = useCallback(() => {
     if (token && Number.isInteger(peerId)) void mobileApi.markMessagesRead(token, peerId).catch(() => undefined);
@@ -57,6 +61,19 @@ export default function ChatScreen() {
   }, [peerId, token]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    draftHydrated.current = false;
+    if (!user || !Number.isInteger(peerId)) return;
+    void AsyncStorage.getItem(draftStorageKey).then((stored) => setDraft(stored ?? "")).catch(() => undefined).finally(() => { draftHydrated.current = true; });
+  }, [draftStorageKey, peerId, user]);
+  useEffect(() => {
+    if (!draftHydrated.current || !user || !Number.isInteger(peerId)) return;
+    const timeout = setTimeout(() => {
+      if (draft.trim()) void AsyncStorage.setItem(draftStorageKey, draft);
+      else void AsyncStorage.removeItem(draftStorageKey);
+    }, 360);
+    return () => clearTimeout(timeout);
+  }, [draft, draftStorageKey, peerId, user]);
   useEffect(() => {
     if (!lastMessage || !user) return;
     const belongs = (lastMessage.senderId === peerId && lastMessage.recipientId === user.id) || (lastMessage.recipientId === peerId && lastMessage.senderId === user.id);
@@ -110,6 +127,7 @@ export default function ChatScreen() {
     try {
       const message = await sendMessage(peer.id, body);
       setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]);
+      void AsyncStorage.removeItem(draftStorageKey);
     } catch (reason) {
       setDraft(body);
       setError(reason instanceof Error ? reason.message : "Không gửi được tin nhắn.");
@@ -147,6 +165,7 @@ export default function ChatScreen() {
       const message = await sendMessage(peer.id, draft.trim(), uploaded[0], uploaded);
       setDraft("");
       setPendingMedia([]);
+      void AsyncStorage.removeItem(draftStorageKey);
       setMessages((current) => current.some((item) => item.id === message.id) ? current : [...current, message]);
     } catch (reason) { setError(uploadWasCanceled.current ? "Đã hủy tải ảnh hoặc video." : reason instanceof Error ? reason.message : "Không thể gửi ảnh hoặc video."); }
     finally { setUploading(false); setUploadProgress(0); uploadCancellation.current = null; uploadWasCanceled.current = false; }
@@ -160,7 +179,7 @@ export default function ChatScreen() {
   const toggleCallHistory = async () => { if (showCallHistory) { setShowCallHistory(false); return; } if (!token) return; try { setCallHistory(await mobileApi.callHistory(token, peerId)); setShowCallHistory(true); } catch { setError("Không thể tải lịch sử cuộc gọi."); } };
 
   const online = peer ? onlineIds.includes(peer.id) : false;
-  const avatar = peer ? { id: String(peer.id), name: peer.displayName, initials: peer.displayName.split(" ").map((word) => word[0]).slice(0, 2).join(""), avatarColor: ["#8A63D2", "#D35D77", "#2F9E8F", "#3269C6"][peer.id % 4], presence: online ? "online" as const : "offline" as const } : null;
+  const avatar = peer ? { id: String(peer.id), name: peer.displayName, initials: peer.displayName.split(" ").map((word) => word[0]).slice(0, 2).join(""), avatarColor: ["#8A63D2", "#D35D77", "#2F9E8F", "#3269C6"][peer.id % 4], avatarUrl: peer.avatarUrl ? mobileApi.mediaUrl(peer.avatarUrl) : null, presence: online ? "online" as const : "offline" as const } : null;
   const draftPreview = draft.trim() || (pendingMedia.length ? "Chưa có chú thích chung cho nhóm tệp." : "Nội dung đang viết sẽ hiển thị tại đây.");
   const draftMode = pendingMedia.length ? `Chú thích chung · ${pendingMedia.length} tệp đính kèm` : "Tin nhắn mới";
 
@@ -173,8 +192,8 @@ export default function ChatScreen() {
     {pendingMedia.length ? <View style={styles.mediaComposer}><View style={styles.historyHeader}><View><Text style={styles.mediaComposerTitle}>Chú thích riêng cho từng tệp</Text><Text style={styles.mediaComposerHint}>Nội dung composer bên dưới là chú thích chung cho cả nhóm.</Text></View><Pressable onPress={() => setPendingMedia([])} disabled={uploading}><Text style={styles.dismiss}>Hủy chọn</Text></Pressable></View>{pendingMedia.map(({ asset, caption }, index) => <View key={`${asset.uri}-${index}`} style={styles.pendingMediaRow}>{asset.type === "image" ? <Image source={{ uri: asset.uri }} style={styles.pendingThumbnail} /> : <View style={styles.pendingVideo}><Text style={styles.pendingVideoText}>VIDEO</Text></View>}<TextInput value={caption} onChangeText={(value) => updatePendingCaption(asset.uri, value)} placeholder={`Chú thích tệp ${index + 1}`} placeholderTextColor="#8493A5" style={styles.pendingCaption} multiline editable={!uploading} /></View>)}<Pressable onPress={() => void sendPendingMedia()} disabled={uploading} style={({ pressed }) => [styles.mediaSubmit, uploading && styles.forwardSubmitDisabled, pressed && styles.pressed]}><Text style={styles.mediaSubmitText}>{uploading ? "Đang gửi…" : `Gửi ${pendingMedia.length} tệp`}</Text></Pressable></View> : null}
     {uploading ? <View style={mediaStyles.uploadTrack}><View style={[mediaStyles.uploadFill, { width: `${Math.max(5, Math.round(uploadProgress * 100))}%` }]} /><Text style={mediaStyles.uploadLabel}>Đang tải {Math.round(uploadProgress * 100)}%</Text><Pressable onPress={cancelMediaUpload} style={mediaStyles.cancelUpload}><Text style={mediaStyles.cancelUploadText}>Hủy</Text></Pressable></View> : null}
     <View style={composerStyles.shell}>
-      <View style={composerStyles.statusRow}><Text style={composerStyles.statusLabel}>{draftMode}</Text><Text style={composerStyles.counter}>{draft.length}/4000</Text></View>
-      <View style={[composerStyles.preview, draft.trim() && composerStyles.previewActive]}><Text style={composerStyles.previewCaption}>ĐANG SOẠN</Text><Text numberOfLines={2} style={[composerStyles.previewText, !draft.trim() && composerStyles.previewPlaceholder]}>{draftPreview}</Text></View>
+      <View style={composerStyles.statusRow}><Text style={composerStyles.statusLabel}>{draftMode}</Text><View style={composerStyles.statusActions}><Pressable onPress={() => setIsDraftPreviewExpanded((value) => !value)} accessibilityLabel={isDraftPreviewExpanded ? "Thu gọn khung đang soạn" : "Mở rộng khung đang soạn"} style={({ pressed }) => [composerStyles.previewToggle, pressed && styles.pressed]}><Text style={composerStyles.previewToggleText}>{isDraftPreviewExpanded ? "Thu gọn" : "Xem trước"}</Text></Pressable><Text style={composerStyles.counter}>{draft.length}/4000</Text></View></View>
+      {isDraftPreviewExpanded ? <View style={[composerStyles.preview, draft.trim() && composerStyles.previewActive]}><Text style={composerStyles.previewCaption}>ĐANG SOẠN</Text><Text numberOfLines={2} style={[composerStyles.previewText, !draft.trim() && composerStyles.previewPlaceholder]}>{draftPreview}</Text></View> : null}
       <View style={composerStyles.actionRow}>
         <Pressable onPress={() => void pickMedia()} disabled={!peer || uploading || pendingMedia.length > 0} accessibilityLabel="Chọn ảnh hoặc video" style={({ pressed }) => [composerStyles.attach, (!peer || uploading || pendingMedia.length > 0) && composerStyles.attachDisabled, pressed && styles.pressed]}>{uploading ? <ActivityIndicator size="small" color="#1577E8" /> : <Text style={composerStyles.attachText}>＋</Text>}</Pressable>
         <TextInput value={draft} onChangeText={handleDraft} onSubmitEditing={() => void send()} placeholder={uploading ? "Đang tải media…" : pendingMedia.length ? "Thêm chú thích chung cho nhóm" : "Viết tin nhắn…"} placeholderTextColor="#8493A5" style={composerStyles.input} returnKeyType="send" multiline editable={!uploading} accessibilityLabel="Nội dung tin nhắn đang soạn" />
@@ -202,8 +221,11 @@ const mediaStyles = StyleSheet.create({ uploadTrack: { height: 26, marginHorizon
 const composerStyles = StyleSheet.create({
   shell: { marginTop: 3, paddingHorizontal: 12, paddingTop: 10, paddingBottom: 12, backgroundColor: "#FFFFFF", borderTopWidth: 1, borderTopColor: "#DDE8F2", shadowColor: "#153150", shadowOpacity: 0.08, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 7 },
   statusRow: { minHeight: 18, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, marginBottom: 6 },
+  statusActions: { flexDirection: "row", alignItems: "center", gap: 9 },
   statusLabel: { color: "#42739D", fontSize: 10, fontWeight: "900", letterSpacing: 0.3 },
   counter: { color: "#92A3B4", fontSize: 10, fontVariant: ["tabular-nums"] },
+  previewToggle: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 7, backgroundColor: "#EAF5FF" },
+  previewToggleText: { color: "#2775B8", fontSize: 9, fontWeight: "900" },
   preview: { minHeight: 44, paddingHorizontal: 11, paddingVertical: 7, borderRadius: 13, borderWidth: 1, borderColor: "#E0EAF3", backgroundColor: "#F7FAFD" },
   previewActive: { borderColor: "#A9D1F5", backgroundColor: "#EFF8FF" },
   previewCaption: { color: "#7892AA", fontSize: 8, fontWeight: "900", letterSpacing: 0.8 },

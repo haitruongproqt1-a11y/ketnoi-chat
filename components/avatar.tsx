@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import type { ChatParticipant } from "@/shared/chat-types";
 
@@ -7,7 +7,7 @@ export function Avatar({ participant, size = 48, showPresence = true }: { partic
   return (
     <View style={{ width: size, height: size }}>
       <View style={[styles.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: participant.avatarColor }]}>
-        <Text style={[styles.initials, { fontSize: Math.max(12, size * 0.29) }]}>{participant.initials}</Text>
+        {participant.avatarUrl ? <Image source={{ uri: participant.avatarUrl }} style={[styles.image, { width: size, height: size, borderRadius: size / 2 }]} /> : <Text style={[styles.initials, { fontSize: Math.max(12, size * 0.29) }]}>{participant.initials}</Text>}
       </View>
       {showPresence && participant.presence !== "offline" ? (
         <View
@@ -23,6 +23,7 @@ export function Avatar({ participant, size = 48, showPresence = true }: { partic
 
 const styles = StyleSheet.create({
   avatar: { alignItems: "center", justifyContent: "center" },
+  image: { position: "absolute" },
   initials: { color: "#FFFFFF", fontWeight: "800", letterSpacing: -0.3 },
   presence: { position: "absolute", right: -1, bottom: -1, borderWidth: 2, borderColor: "#FFFFFF" },
 });

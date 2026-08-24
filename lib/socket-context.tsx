@@ -3,6 +3,7 @@ import { io, type Socket } from "socket.io-client";
 
 import { SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
+import { playIncomingMessageTone } from "./sound-feedback";
 
 type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share";
 type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string; isScreenSharing?: boolean };
@@ -30,7 +31,7 @@ type SocketContextValue = {
 const SocketContext = createContext<SocketContextValue | null>(null);
 
 export function SocketProvider({ children }: { children: React.ReactNode }) {
-  const { token } = useMobileAuth();
+  const { token, user } = useMobileAuth();
   const socketRef = useRef<Socket | null>(null);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
@@ -49,7 +50,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     setSocket(instance);
     instance.on("presence:list", (ids: number[]) => setOnlineIds(ids));
     instance.on("presence:changed", ({ userId, online }: { userId: number; online: boolean }) => setOnlineIds((current) => online ? [...new Set([...current, userId])] : current.filter((id) => id !== userId)));
-    instance.on("chat:new", (message: MobileMessage) => setLastMessage(message));
+    instance.on("chat:new", (message: MobileMessage) => { if (message.senderId !== user?.id) playIncomingMessageTone(); setLastMessage(message); });
     instance.on("chat:typing", (payload: ChatTyping) => setLastTyping(payload));
     instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     instance.on("chat:delivered", (payload: ChatDeliveryReceipt) => setLastDeliveryReceipt(payload));
@@ -60,7 +61,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       setLatestSignal({ event, payload });
     }));
     return () => { instance.disconnect(); if (socketRef.current === instance) socketRef.current = null; };
-  }, [token]);
+  }, [token, user?.id]);
 
   const value = useMemo<SocketContextValue>(() => ({
     socket,

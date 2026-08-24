@@ -1,19 +1,17 @@
 import { Linking, Platform } from "react-native";
 import * as FileSystem from "expo-file-system/legacy";
 import * as Sharing from "expo-sharing";
-import { getApiBaseUrl } from "@/constants/oauth";
 
 /**
  * Đặt EXPO_PUBLIC_API_URL và EXPO_PUBLIC_SOCKET_URL khi phát triển với server Node.js.
  * Android emulator mặc định dùng 10.0.2.2; thiết bị thật cần IP LAN hoặc HTTPS công khai.
  */
-const localHost = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
-const derivedApiUrl = getApiBaseUrl();
+const localHost = Platform.OS === "android" ? "http://10.0.2.2:3001" : "http://127.0.0.1:3001";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? derivedApiUrl ?? localHost;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? localHost;
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
-export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
+export type MobileUser = { id: number; username: string; displayName: string; email: string | null; avatarUrl: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
 export type ChatMedia = { url: string; kind: "image" | "video"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
 export type ChatCallEvent = { callId: string; kind: "audio" | "video"; status: "missed" | "answered" | "declined" | "ended"; durationSeconds: number };
@@ -39,6 +37,7 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 export const mobileApi = {
   login: (username: string, password: string) => request<AuthPayload>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, displayName: string, password: string, email?: string) => request<AuthPayload>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, displayName, password, email }) }),
+  updateProfile: (token: string, changes: Partial<Pick<MobileUser, "displayName" | "avatarUrl">>) => request<MobileUser>("/api/me", { method: "PUT", body: JSON.stringify(changes) }, token),
   friends: (token: string) => request<MobileUser[]>("/api/friends", {}, token),
   conversations: (token: string) => request<ConversationSummary[]>("/api/conversations", {}, token),
   updateConversation: (token: string, peerId: number, changes: Partial<{ pinned: boolean; archived: boolean; muted: boolean; hidden: boolean }>) => request<ConversationSummary>(`/api/conversations/${peerId}`, { method: "PATCH", body: JSON.stringify(changes) }, token),

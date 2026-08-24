@@ -38,6 +38,13 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const [first, second] = await Promise.all([login(firstUsername!), login(secondUsername!)]);
     const [firstSocket, secondSocket] = await Promise.all([connect(first.token), connect(second.token)]);
 
+    const profileResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/me`, { headers: { Authorization: `Bearer ${first.token}` } });
+    expect(profileResponse.ok).toBe(true);
+    const profile = await profileResponse.json() as { displayName: string; avatarUrl: string | null };
+    const profileUpdate = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/me`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ displayName: profile.displayName, avatarUrl: profile.avatarUrl }) });
+    expect(profileUpdate.ok).toBe(true);
+    expect(await profileUpdate.json()).toMatchObject({ displayName: profile.displayName, avatarUrl: profile.avatarUrl });
+
     const typing = once<TypingPayload>(secondSocket, "chat:typing", (payload) => payload.fromUserId === first.user.id);
     firstSocket.emit("chat:typing", { recipientId: second.user.id, isTyping: true });
     await expect(typing).resolves.toMatchObject({ fromUserId: first.user.id, isTyping: true });

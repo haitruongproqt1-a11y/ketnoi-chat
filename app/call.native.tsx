@@ -11,12 +11,12 @@ import { useMobileAuth } from "@/lib/auth-context";
 import { mobileApi } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
+import { startCallWaitingTone, startIncomingRingtone, stopCallWaitingTone, stopIncomingRingtone } from "@/lib/sound-feedback";
 
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 type PreviewCorner = "left" | "right";
 type CallControlIcon = "mic.fill" | "mic.slash.fill" | "speaker.wave.2.fill" | "speaker.slash.fill" | "video.fill" | "video.slash.fill" | "camera.rotate.fill" | "rectangle.on.rectangle";
 const QUICK_REPLIES = ["Tôi đang bận, sẽ gọi lại sau.", "Tôi sẽ gọi lại trong ít phút.", "Vui lòng nhắn tin cho tôi nhé."];
-const ringtoneManager = InCallManager as typeof InCallManager & { startRingtone?: (tone?: string, vibrate?: number[]) => void; stopRingtone?: () => void };
 
 function formatDuration(value: number) {
   return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
@@ -154,9 +154,15 @@ export default function CallScreen() {
 
   useEffect(() => {
     if (callState !== "incoming") return;
-    ringtoneManager.startRingtone?.("_BUNDLE_");
-    return () => ringtoneManager.stopRingtone?.();
+    startIncomingRingtone();
+    return () => stopIncomingRingtone();
   }, [callState]);
+
+  useEffect(() => {
+    if (direction === "incoming" || callState !== "connecting") return;
+    startCallWaitingTone();
+    return () => stopCallWaitingTone();
+  }, [callState, direction]);
 
   useEffect(() => {
     if (!latestSignal || latestSignal.payload.callId !== callId.current) return;

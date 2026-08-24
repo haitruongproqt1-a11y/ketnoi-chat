@@ -10,6 +10,7 @@ export interface ChatParticipant {
   id: string;
   name: string;
   avatarColor: string;
+  avatarUrl?: string | null;
   initials: string;
   presence: Presence;
   lastActiveLabel?: string;

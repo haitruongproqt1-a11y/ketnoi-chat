@@ -77,3 +77,9 @@
 - [x] Thêm caption riêng cho từng ảnh/video trong nhóm gửi đi.
 - [x] Hiển thị lịch sử cuộc gọi đầy đủ trong cuộc trò chuyện.
 - [x] Tái tổ chức bố cục chat dễ nhìn và làm rõ bảng soạn tin đang nhập.
+- [x] Thêm âm báo tin nhắn, nhạc chuông và nhạc chờ cuộc gọi.
+- [x] Lưu nháp tin nhắn tự động theo từng cuộc trò chuyện.
+- [x] Bổ sung thao tác thu gọn hoặc mở rộng khung xem trước đang soạn.
+- [x] Cho phép người dùng đổi tên hiển thị và ảnh đại diện tài khoản.
+- [x] Bảo toàn kiến trúc chat/media và WebRTC/Socket.io hiện có khi tích hợp tính năng mới.
+- [x] Chuyển đổi âm thanh cuộc gọi sang MP3 dưới 500 KB để lưu checkpoint.
