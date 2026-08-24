@@ -11,7 +11,7 @@ export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
-export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string };
+export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; readAt: string | null };
 export type IceConfig = { iceServers: Array<{ urls: string[]; username?: string; credential?: string }> };
 export type FriendRelationship = "friends" | "incoming" | "outgoing" | "none";
 export type UserSearchResult = MobileUser & { relationship: FriendRelationship };
@@ -37,6 +37,7 @@ export const mobileApi = {
   sendFriendRequest: (token: string, recipientId: number) => request<FriendRequest>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId }) }, token),
   respondFriendRequest: (token: string, requestId: number, accept: boolean) => request<FriendRequest>(`/api/friend-requests/${requestId}/respond`, { method: "POST", body: JSON.stringify({ accept }) }, token),
   messages: (token: string, peerId: number) => request<MobileMessage[]>(`/api/messages/${peerId}`, {}, token),
+  markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   callHistory: (token: string) => request<CallHistoryEntry[]>("/api/calls", {}, token),
   registerPushToken: (token: string, pushToken: string, platform: "ios" | "android") => request<void>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token: pushToken, platform }) }, token),
   iceConfig: (token: string) => request<IceConfig>("/api/webrtc/config", {}, token),

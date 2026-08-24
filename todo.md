@@ -43,3 +43,6 @@
 - [x] Bổ sung chia sẻ màn hình trong gọi video cùng trạng thái signaling rõ ràng.
 - [x] Khắc phục kết nối backend cho luồng đăng ký, đăng nhập và Socket.io trên preview/mobile.
 - [x] Xác minh lại đăng ký, đăng nhập và trạng thái kết nối bằng endpoint backend đang hoạt động.
+- [x] Bổ sung trạng thái đang gõ realtime giữa hai người trong cuộc trò chuyện.
+- [x] Bổ sung xác nhận đã đọc tin nhắn realtime và hiển thị trạng thái trong chat.
+- [x] Tự đăng nhập sau đăng ký, bổ sung tùy chọn ghi nhớ đăng nhập và cải thiện loading/lỗi xác thực.

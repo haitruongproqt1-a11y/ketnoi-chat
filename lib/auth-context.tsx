@@ -9,8 +9,8 @@ type AuthContextValue = {
   token: string | null;
   user: MobileUser | null;
   loading: boolean;
-  signIn: (username: string, password: string) => Promise<void>;
-  register: (username: string, displayName: string, password: string, email?: string) => Promise<void>;
+  signIn: (username: string, password: string, remember?: boolean) => Promise<void>;
+  register: (username: string, displayName: string, password: string, email?: string, remember?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -32,14 +32,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
-  const save = useCallback(async (payload: AuthPayload) => {
+  const save = useCallback(async (payload: AuthPayload, remember = true) => {
     setToken(payload.token);
     setUser(payload.user);
-    await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    if (remember) await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(payload));
+    else await AsyncStorage.removeItem(SESSION_KEY);
   }, []);
 
-  const signIn = useCallback(async (username: string, password: string) => save(await mobileApi.login(username.trim(), password)), [save]);
-  const register = useCallback(async (username: string, displayName: string, password: string, email?: string) => save(await mobileApi.register(username.trim(), displayName.trim(), password, email?.trim())), [save]);
+  const signIn = useCallback(async (username: string, password: string, remember = true) => save(await mobileApi.login(username.trim(), password), remember), [save]);
+  const register = useCallback(async (username: string, displayName: string, password: string, email?: string, remember = true) => save(await mobileApi.register(username.trim(), displayName.trim(), password, email?.trim()), remember), [save]);
   const signOut = useCallback(async () => { setToken(null); setUser(null); await AsyncStorage.removeItem(SESSION_KEY); }, []);
 
   const value = useMemo(() => ({ token, user, loading, signIn, register, signOut }), [loading, register, signIn, signOut, token, user]);

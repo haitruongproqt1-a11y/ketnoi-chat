@@ -6,13 +6,18 @@ import { useMobileAuth } from "./auth-context";
 
 type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup";
 type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean };
+type ChatTyping = { fromUserId: number; isTyping: boolean };
+type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type SocketContextValue = {
   socket: Socket | null;
   onlineIds: number[];
   lastMessage: MobileMessage | null;
+  lastTyping: ChatTyping | null;
+  lastReadReceipt: ChatReadReceipt | null;
   incomingOffer: CallSignal | null;
   latestSignal: { event: SignalEvent; payload: CallSignal } | null;
   sendMessage: (recipientId: number, body: string) => Promise<MobileMessage>;
+  sendTyping: (recipientId: number, isTyping: boolean) => void;
   sendSignal: (event: SignalEvent, payload: CallSignal) => void;
   clearSignal: () => void;
   clearIncomingOffer: () => void;
@@ -26,17 +31,21 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
   const [lastMessage, setLastMessage] = useState<MobileMessage | null>(null);
+  const [lastTyping, setLastTyping] = useState<ChatTyping | null>(null);
+  const [lastReadReceipt, setLastReadReceipt] = useState<ChatReadReceipt | null>(null);
   const [incomingOffer, setIncomingOffer] = useState<CallSignal | null>(null);
   const [latestSignal, setLatestSignal] = useState<SocketContextValue["latestSignal"]>(null);
 
   useEffect(() => {
-    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); return; }
+    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); return; }
     const instance = io(SOCKET_URL, { auth: { token }, transports: ["websocket", "polling"] });
     socketRef.current = instance;
     setSocket(instance);
     instance.on("presence:list", (ids: number[]) => setOnlineIds(ids));
     instance.on("presence:changed", ({ userId, online }: { userId: number; online: boolean }) => setOnlineIds((current) => online ? [...new Set([...current, userId])] : current.filter((id) => id !== userId)));
     instance.on("chat:new", (message: MobileMessage) => setLastMessage(message));
+    instance.on("chat:typing", (payload: ChatTyping) => setLastTyping(payload));
+    instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup"];
     signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
       if (event === "call:offer") setIncomingOffer(payload);
@@ -49,6 +58,8 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     socket,
     onlineIds,
     lastMessage,
+    lastTyping,
+    lastReadReceipt,
     incomingOffer,
     latestSignal,
     sendMessage: (recipientId, body) => new Promise<MobileMessage>((resolve, reject) => {
@@ -59,10 +70,11 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
         else reject(new Error(reply.error ?? "Không gửi được tin nhắn"));
       });
     }),
+    sendTyping: (recipientId, isTyping) => socketRef.current?.emit("chat:typing", { recipientId, isTyping }),
     sendSignal: (event, payload) => socketRef.current?.emit(event, payload),
     clearSignal: () => setLatestSignal(null),
     clearIncomingOffer: () => setIncomingOffer(null),
-  }), [incomingOffer, lastMessage, latestSignal, onlineIds, socket]);
+  }), [incomingOffer, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, socket]);
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 
