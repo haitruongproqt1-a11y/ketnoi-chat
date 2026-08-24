@@ -36,3 +36,5 @@
 - [x] Hoàn thiện profile EAS Android APK và hướng dẫn xuất APK qua nút Publish an toàn.
 - [x] Chuẩn hóa safe area trên/dưới, tab bar và vùng thao tác để không vướng thanh hệ thống Android/iOS.
 - [x] Tinh chỉnh nhịp bố cục, bề mặt và điều khiển chat/gọi để giao diện mobile nhất quán, dễ nhìn hơn.
+- [x] Hoàn thiện giao diện gọi thoại với trạng thái kết nối, mic/loa và nút kết thúc an toàn.
+- [x] Hoàn thiện gọi video hai chiều với remote video toàn màn hình và local preview có thể đổi vị trí.
