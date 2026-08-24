@@ -38,3 +38,6 @@
 - [x] Tinh chỉnh nhịp bố cục, bề mặt và điều khiển chat/gọi để giao diện mobile nhất quán, dễ nhìn hơn.
 - [x] Hoàn thiện giao diện gọi thoại với trạng thái kết nối, mic/loa và nút kết thúc an toàn.
 - [x] Hoàn thiện gọi video hai chiều với remote video toàn màn hình và local preview có thể đổi vị trí.
+- [x] Tối giản gọi thoại chỉ có avatar, tên người gọi và thời lượng sau xác nhận kết nối.
+- [x] Bổ sung chuyển camera trước/sau trong gọi video native.
+- [x] Bổ sung chia sẻ màn hình trong gọi video cùng trạng thái signaling rõ ràng.

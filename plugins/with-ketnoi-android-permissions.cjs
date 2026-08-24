@@ -5,6 +5,8 @@ const REQUIRED_PERMISSIONS = [
   "android.permission.RECORD_AUDIO",
   "android.permission.MODIFY_AUDIO_SETTINGS",
   "android.permission.ACCESS_NETWORK_STATE",
+  "android.permission.FOREGROUND_SERVICE",
+  "android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION",
 ];
 
 module.exports = function withKetNoiAndroidPermissions(config) {
