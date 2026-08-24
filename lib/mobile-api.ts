@@ -13,7 +13,7 @@ export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
-export type ChatMedia = { url: string; kind: "image" | "video"; name: string; mimeType: string; size: number; thumbnailUrl: string | null };
+export type ChatMedia = { url: string; kind: "image" | "video"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
 export type ChatCallEvent = { callId: string; kind: "audio" | "video"; status: "missed" | "answered" | "declined" | "ended"; durationSeconds: number };
 export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null; media: ChatMedia | null; mediaItems?: ChatMedia[]; mediaRevokedAt: string | null; callEvent?: ChatCallEvent | null };
 export type ConversationSummary = { peer: MobileUser; lastMessage: MobileMessage | null; unreadCount: number; pinned: boolean; archived: boolean; muted: boolean };
@@ -83,7 +83,7 @@ export const mobileApi = {
   searchMessages: (token: string, query: string) => request<MessageSearchResult[]>(`/api/messages/search?q=${encodeURIComponent(query)}`, {}, token),
   readReceiptPreference: (token: string) => request<{ readReceiptsEnabled: boolean }>("/api/preferences", {}, token),
   setReadReceiptPreference: (token: string, enabled: boolean) => request<{ readReceiptsEnabled: boolean }>("/api/preferences/read-receipts", { method: "PUT", body: JSON.stringify({ enabled }) }, token),
-  callHistory: (token: string) => request<CallHistoryEntry[]>("/api/calls", {}, token),
+  callHistory: (token: string, peerId?: number) => request<CallHistoryEntry[]>(`/api/calls${peerId ? `?peerId=${peerId}` : ""}`, {}, token),
   registerPushToken: (token: string, pushToken: string, platform: "ios" | "android") => request<void>("/api/push-tokens", { method: "POST", body: JSON.stringify({ token: pushToken, platform }) }, token),
   iceConfig: (token: string) => request<IceConfig>("/api/webrtc/config", {}, token),
 };

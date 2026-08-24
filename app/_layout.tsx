@@ -139,7 +139,7 @@ function IncomingCallNavigator() {
   useEffect(() => {
     if (!incomingOffer?.fromUserId || routedCallId.current === incomingOffer.callId) return;
     routedCallId.current = incomingOffer.callId;
-    router.push({ pathname: "/call", params: { peerId: String(incomingOffer.fromUserId), direction: "incoming", mode: incomingOffer.withVideo ? "video" : "audio" } });
+    router.push({ pathname: "/call", params: { peerId: String(incomingOffer.fromUserId), peerName: incomingOffer.callerName ?? "", direction: "incoming", mode: incomingOffer.withVideo ? "video" : "audio" } });
   }, [incomingOffer, router]);
   return null;
 }

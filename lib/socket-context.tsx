@@ -5,7 +5,7 @@ import { SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
 
 type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup";
-type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean };
+type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string };
 type ChatTyping = { fromUserId: number; isTyping: boolean };
 type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type ChatDeliveryReceipt = { recipientId: number; messageIds: number[]; deliveredAt: string };

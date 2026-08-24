@@ -72,3 +72,7 @@
 - [x] Cho phép nhập caption cho từng tệp hoặc cả nhóm ảnh/video trước khi gửi.
 - [x] Bổ sung chuyển tiếp nhóm ảnh/video sang cuộc trò chuyện khác.
 - [x] Hiển thị cuộc gọi đến toàn màn hình với tên, avatar, thời lượng và bản ghi cuộc gọi trong chat.
+- [x] Thêm nhạc chuông và từ chối cuộc gọi bằng tin nhắn nhanh.
+- [x] Cho phép chọn nhiều người nhận khi chuyển tiếp media.
+- [x] Thêm caption riêng cho từng ảnh/video trong nhóm gửi đi.
+- [x] Hiển thị lịch sử cuộc gọi đầy đủ trong cuộc trò chuyện.

@@ -15,6 +15,8 @@ import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 type PreviewCorner = "left" | "right";
 type CallControlIcon = "mic.fill" | "mic.slash.fill" | "speaker.wave.2.fill" | "speaker.slash.fill" | "video.fill" | "video.slash.fill" | "camera.rotate.fill" | "rectangle.on.rectangle";
+const QUICK_REPLIES = ["Tôi đang bận, sẽ gọi lại sau.", "Tôi sẽ gọi lại trong ít phút.", "Vui lòng nhắn tin cho tôi nhé."];
+const ringtoneManager = InCallManager as typeof InCallManager & { startRingtone?: (tone?: string, vibrate?: number[]) => void; stopRingtone?: () => void };
 
 function formatDuration(value: number) {
   return `${String(Math.floor(value / 60)).padStart(2, "0")}:${String(value % 60).padStart(2, "0")}`;
@@ -47,6 +49,7 @@ export default function CallScreen() {
   const [peerName, setPeerName] = useState(peerNameParam?.trim() || `Người dùng #${peerId}`);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
+  const [showQuickReplies, setShowQuickReplies] = useState(false);
 
   const stopCall = (notify = true) => {
     if (notify && peerId) sendSignal("call:hangup", { toUserId: peerId, callId: callId.current });
@@ -149,6 +152,12 @@ export default function CallScreen() {
   }, []);
 
   useEffect(() => {
+    if (callState !== "incoming") return;
+    ringtoneManager.startRingtone?.("_BUNDLE_");
+    return () => ringtoneManager.stopRingtone?.();
+  }, [callState]);
+
+  useEffect(() => {
     if (!latestSignal || latestSignal.payload.callId !== callId.current) return;
     const { event, payload } = latestSignal;
     if (event === "call:answer" && payload.description && peerRef.current) {
@@ -229,12 +238,18 @@ export default function CallScreen() {
     router.back();
   };
 
+  const declineIncomingCall = (quickReply?: string) => {
+    if (peerId) sendSignal("call:hangup", { toUserId: peerId, callId: callId.current, reason: "declined", ...(quickReply ? { quickReply } : {}) });
+    stopCall(false);
+    router.back();
+  };
+
   const status = callState === "connected" ? formatDuration(seconds) : callState === "incoming" ? "Cuộc gọi đến" : callState === "error" ? error : "Đang kết nối…";
   const previewStream = isScreenSharing ? screenRef.current : localStream;
   const audioLabel = direction === "incoming" ? "Người gọi" : "Đang gọi";
   const initials = peerName.split(" ").filter(Boolean).map((word) => word[0]).slice(0, 2).join("").toUpperCase() || "KN";
 
-  if (callState === "incoming") return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#081E37]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.incomingPage}><View style={styles.incomingGlow} /><Text style={styles.incomingKicker}>{withVideo ? "CUỘC GỌI VIDEO ĐẾN" : "CUỘC GỌI THOẠI ĐẾN"}</Text><View style={styles.incomingAvatar}><Text style={styles.incomingInitials}>{initials}</Text></View><Text style={styles.incomingName}>{peerName}</Text><Text style={styles.incomingStatus}>Đang gọi cho bạn…</Text><View style={styles.fullscreenIncomingControls}><ActionButton label="Từ chối" color="#E5484D" onPress={leave} /><ActionButton label="Nhận cuộc gọi" color="#19A974" onPress={() => void acceptCall()} /></View></View></ScreenContainer>;
+  if (callState === "incoming") return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#081E37]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.incomingPage}><View style={styles.incomingGlow} /><Text style={styles.incomingKicker}>{withVideo ? "CUỘC GỌI VIDEO ĐẾN" : "CUỘC GỌI THOẠI ĐẾN"}</Text><View style={styles.incomingAvatar}><Text style={styles.incomingInitials}>{initials}</Text></View><Text style={styles.incomingName}>{peerName}</Text><Text style={styles.incomingStatus}>Đang gọi cho bạn…</Text>{showQuickReplies ? <View style={styles.quickReplySheet}><Text style={styles.quickReplyTitle}>Từ chối và gửi tin nhắn</Text>{QUICK_REPLIES.map((reply) => <Pressable key={reply} onPress={() => declineIncomingCall(reply)} style={({ pressed }) => [styles.quickReplyOption, pressed && styles.pressed]}><Text style={styles.quickReplyText}>{reply}</Text></Pressable>)}<Pressable onPress={() => setShowQuickReplies(false)}><Text style={styles.quickReplyDismiss}>Quay lại</Text></Pressable></View> : null}<View style={styles.fullscreenIncomingControls}><ActionButton label="Từ chối" color="#E5484D" onPress={() => declineIncomingCall()} /><ActionButton label="Nhắn nhanh" color="#315B82" onPress={() => setShowQuickReplies(true)} /><ActionButton label="Nhận" color="#19A974" onPress={() => void acceptCall()} /></View></View></ScreenContainer>;
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#081E37]" className="flex-1">
@@ -337,8 +352,13 @@ const styles = StyleSheet.create({
   incomingInitials: { color: "#F0F8FF", fontSize: 58, fontWeight: "900", letterSpacing: -4 },
   incomingName: { maxWidth: "90%", marginTop: 23, color: "#FFFFFF", fontSize: 25, fontWeight: "900", textAlign: "center" },
   incomingStatus: { marginTop: 7, color: "#B8CFE7", fontSize: 14 },
-  fullscreenIncomingControls: { position: "absolute", left: 24, right: 24, bottom: 42, flexDirection: "row", justifyContent: "space-between", gap: 14 },
-  action: { paddingVertical: 14, paddingHorizontal: 22, borderRadius: 15 },
-  actionText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
+  fullscreenIncomingControls: { position: "absolute", left: 20, right: 20, bottom: 34, flexDirection: "row", justifyContent: "space-between", gap: 8 },
+  action: { flex: 1, minHeight: 49, alignItems: "center", justifyContent: "center", paddingHorizontal: 8, borderRadius: 15 },
+  actionText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
+  quickReplySheet: { position: "absolute", left: 20, right: 20, bottom: 104, padding: 14, borderRadius: 20, backgroundColor: "#FFFFFF", shadowColor: "#000000", shadowOpacity: 0.26, shadowRadius: 18, shadowOffset: { width: 0, height: 6 }, elevation: 12 },
+  quickReplyTitle: { color: "#173451", fontSize: 13, fontWeight: "900", marginBottom: 8 },
+  quickReplyOption: { paddingVertical: 11, borderTopWidth: 1, borderTopColor: "#E4ECF4" },
+  quickReplyText: { color: "#315B82", fontSize: 13, lineHeight: 18 },
+  quickReplyDismiss: { color: "#1577E8", textAlign: "center", fontSize: 12, fontWeight: "900", marginTop: 8 },
   pressed: { opacity: 0.62 },
 });

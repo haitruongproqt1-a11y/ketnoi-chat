@@ -8,7 +8,7 @@ export type IconSymbolName =
   | "chevron.left" | "ellipsis" | "plus" | "camera.fill" | "bell.fill" | "checkmark"
   | "checkmark.double" | "phone.down.fill" | "speaker.wave.2.fill" | "speaker.slash.fill"
   | "video.slash.fill" | "mic.slash.fill" | "camera.rotate.fill" | "rectangle.on.rectangle"
-  | "person.badge.plus" | "lock.fill" | "wifi" | "chevron.right" | "heart.fill" | "gearshape.fill" | "arrow.up" | "house.fill";
+  | "person.badge.plus" | "lock.fill" | "wifi" | "chevron.right" | "heart.fill" | "gearshape.fill" | "arrow.up" | "house.fill" | "clock.fill";
 
 const MAPPING: Record<IconSymbolName, ComponentProps<typeof MaterialIcons>["name"]> = {
   "message.fill": "chat-bubble", "person.2.fill": "groups", "phone.fill": "phone", "person.crop.circle": "account-circle", "magnifyingglass": "search",
@@ -16,7 +16,7 @@ const MAPPING: Record<IconSymbolName, ComponentProps<typeof MaterialIcons>["name
   "chevron.left": "chevron-left", ellipsis: "more-horiz", plus: "add", "camera.fill": "camera-alt", "bell.fill": "notifications-none", checkmark: "done",
   "checkmark.double": "done-all", "phone.down.fill": "call-end", "speaker.wave.2.fill": "volume-up", "speaker.slash.fill": "volume-off",
   "video.slash.fill": "videocam-off", "mic.slash.fill": "mic-off", "camera.rotate.fill": "flip-camera-android", "rectangle.on.rectangle": "screen-share",
-  "person.badge.plus": "person-add", "lock.fill": "lock", wifi: "wifi", "chevron.right": "chevron-right", "heart.fill": "favorite", "gearshape.fill": "settings", "arrow.up": "arrow-upward", "house.fill": "home",
+  "person.badge.plus": "person-add", "lock.fill": "lock", wifi: "wifi", "chevron.right": "chevron-right", "heart.fill": "favorite", "gearshape.fill": "settings", "arrow.up": "arrow-upward", "house.fill": "home", "clock.fill": "history",
 };
 
 export function IconSymbol({ name, size = 24, color, style, weight: _weight }: { name: IconSymbolName; size?: number; color: string | OpaqueColorValue; style?: StyleProp<TextStyle>; weight?: string }) {
