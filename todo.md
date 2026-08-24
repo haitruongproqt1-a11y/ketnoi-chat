@@ -91,3 +91,7 @@
 - [x] Xác nhận URL backend công khai phù hợp cho thiết bị Android.
 - [ ] Tạo APK Android qua nút Publish trong giao diện quản lý sau checkpoint.
 - [x] Rà soát EAS Build, backend trực tiếp và bản web mô phỏng đầy đủ tính năng chat.
+- [ ] Thiết lập cấu hình TURN production bảo mật cho cuộc gọi P2P.
+- [x] Thêm thao tác vuốt tin nhắn để trả lời nhanh.
+- [x] Thêm haptic feedback nhẹ khi gửi tin nhắn.
+- [x] Thêm OpenRelay làm fallback ICE thử nghiệm khi chưa có TURN production riêng.
