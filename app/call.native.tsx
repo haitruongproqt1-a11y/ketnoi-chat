@@ -232,6 +232,9 @@ export default function CallScreen() {
   const status = callState === "connected" ? formatDuration(seconds) : callState === "incoming" ? "Cuộc gọi đến" : callState === "error" ? error : "Đang kết nối…";
   const previewStream = isScreenSharing ? screenRef.current : localStream;
   const audioLabel = direction === "incoming" ? "Người gọi" : "Đang gọi";
+  const initials = peerName.split(" ").filter(Boolean).map((word) => word[0]).slice(0, 2).join("").toUpperCase() || "KN";
+
+  if (callState === "incoming") return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#081E37]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.incomingPage}><View style={styles.incomingGlow} /><Text style={styles.incomingKicker}>{withVideo ? "CUỘC GỌI VIDEO ĐẾN" : "CUỘC GỌI THOẠI ĐẾN"}</Text><View style={styles.incomingAvatar}><Text style={styles.incomingInitials}>{initials}</Text></View><Text style={styles.incomingName}>{peerName}</Text><Text style={styles.incomingStatus}>Đang gọi cho bạn…</Text><View style={styles.fullscreenIncomingControls}><ActionButton label="Từ chối" color="#E5484D" onPress={leave} /><ActionButton label="Nhận cuộc gọi" color="#19A974" onPress={() => void acceptCall()} /></View></View></ScreenContainer>;
 
   return (
     <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#081E37]" className="flex-1">
@@ -258,12 +261,7 @@ export default function CallScreen() {
           <Text style={styles.status}>{status}</Text>
         </View>
 
-        {callState === "incoming" ? (
-          <View style={styles.incomingControls}>
-            <ActionButton label="Từ chối" color="#E5484D" onPress={leave} />
-            <ActionButton label="Nhận cuộc gọi" color="#19A974" onPress={() => void acceptCall()} />
-          </View>
-        ) : withVideo ? (
+        {withVideo ? (
           <VideoControls muted={muted} speakerOn={speakerOn} cameraOn={cameraOn} isScreenSharing={isScreenSharing} onMute={toggleMute} onSpeaker={toggleSpeaker} onCamera={toggleCamera} onSwitchCamera={switchCamera} onScreenShare={() => void toggleScreenShare()} onLeave={leave} />
         ) : (
           <View style={styles.controls}>
@@ -332,7 +330,14 @@ const styles = StyleSheet.create({
   control: { width: 54, alignItems: "center", gap: 5 },
   controlLabel: { color: "#CBDCEA", fontSize: 9, fontWeight: "700", lineHeight: 11, textAlign: "center" },
   end: { width: 56, height: 42, alignItems: "center", justifyContent: "center", borderRadius: 17, backgroundColor: "#E5484D", shadowColor: "#000000", shadowOpacity: 0.2, shadowRadius: 8, shadowOffset: { width: 0, height: 4 }, elevation: 4 },
-  incomingControls: { minHeight: 78, flexDirection: "row", justifyContent: "center", alignItems: "center", gap: 12, paddingHorizontal: 20, paddingBottom: 20 },
+  incomingPage: { flex: 1, alignItems: "center", justifyContent: "center", overflow: "hidden", paddingHorizontal: 28, backgroundColor: "#081E37" },
+  incomingGlow: { position: "absolute", width: 420, height: 420, borderRadius: 210, backgroundColor: "#135B96", opacity: 0.26, top: "13%" },
+  incomingKicker: { color: "#A8D3FF", fontSize: 12, fontWeight: "900", letterSpacing: 1.5, marginBottom: 28 },
+  incomingAvatar: { width: 164, height: 164, borderRadius: 82, alignItems: "center", justifyContent: "center", backgroundColor: "#1D5283", borderWidth: 4, borderColor: "#8FC8FF", shadowColor: "#43A7FF", shadowOpacity: 0.42, shadowRadius: 24, elevation: 8 },
+  incomingInitials: { color: "#F0F8FF", fontSize: 58, fontWeight: "900", letterSpacing: -4 },
+  incomingName: { maxWidth: "90%", marginTop: 23, color: "#FFFFFF", fontSize: 25, fontWeight: "900", textAlign: "center" },
+  incomingStatus: { marginTop: 7, color: "#B8CFE7", fontSize: 14 },
+  fullscreenIncomingControls: { position: "absolute", left: 24, right: 24, bottom: 42, flexDirection: "row", justifyContent: "space-between", gap: 14 },
   action: { paddingVertical: 14, paddingHorizontal: 22, borderRadius: 15 },
   actionText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   pressed: { opacity: 0.62 },

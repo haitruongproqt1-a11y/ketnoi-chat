@@ -69,3 +69,6 @@
 - [x] Hỗ trợ chọn và gửi nhiều ảnh/video trong một tin nhắn.
 - [x] Hiển thị trạng thái cuộc gọi nhỡ, đã nhận và đã nghe trong luồng chat.
 - [x] Hoàn thiện thông báo tin nhắn và cuộc gọi theo trạng thái hội thoại.
+- [x] Cho phép nhập caption cho từng tệp hoặc cả nhóm ảnh/video trước khi gửi.
+- [x] Bổ sung chuyển tiếp nhóm ảnh/video sang cuộc trò chuyện khác.
+- [x] Hiển thị cuộc gọi đến toàn màn hình với tên, avatar, thời lượng và bản ghi cuộc gọi trong chat.
