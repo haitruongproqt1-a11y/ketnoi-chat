@@ -10,7 +10,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 const localHost = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
 const publicChatApiUrl = "https://ketnoichat-rjoe76pz.manus.space";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? getApiBaseUrl() ?? (Platform.OS === "web" ? localHost : publicChatApiUrl);
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? publicChatApiUrl ?? getApiBaseUrl() ?? localHost;
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; avatarUrl: string | null; createdAt: string };

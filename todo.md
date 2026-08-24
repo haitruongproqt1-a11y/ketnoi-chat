@@ -90,3 +90,4 @@
 - [x] Kiểm tra cấu hình Android, quyền camera/micro và profile APK.
 - [x] Xác nhận URL backend công khai phù hợp cho thiết bị Android.
 - [ ] Tạo APK Android qua nút Publish trong giao diện quản lý sau checkpoint.
+- [x] Rà soát EAS Build, backend trực tiếp và bản web mô phỏng đầy đủ tính năng chat.
