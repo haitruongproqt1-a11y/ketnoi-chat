@@ -25,3 +25,5 @@
 - [x] Đăng ký push token, tạo notification tin nhắn/cuộc gọi và xử lý thao tác mở app.
 - [x] Tạo cấu hình EAS Build, tài liệu APK development build và ZIP mã nguồn bàn giao.
 - [ ] Xác minh remote push notification trên development build cài ở thiết bị thật.
+- [x] Khởi động lại preview web và tạo QR để kiểm thử Expo/Development Build trên điện thoại thật.
+- [x] Khôi phục và xác minh Metro/Expo web preview tại cổng 8081 cho người dùng xem giao diện.
