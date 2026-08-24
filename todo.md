@@ -34,3 +34,5 @@
 - [x] Bổ sung màn hình gọi web mô phỏng với điều khiển mic, camera và chia sẻ màn hình để kiểm thử giao diện.
 - [x] Bổ sung/kiểm tra quyền Android CAMERA, RECORD_AUDIO, MODIFY_AUDIO_SETTINGS và ACCESS_NETWORK_STATE trong cấu hình build.
 - [x] Hoàn thiện profile EAS Android APK và hướng dẫn xuất APK qua nút Publish an toàn.
+- [x] Chuẩn hóa safe area trên/dưới, tab bar và vùng thao tác để không vướng thanh hệ thống Android/iOS.
+- [x] Tinh chỉnh nhịp bố cục, bề mặt và điều khiển chat/gọi để giao diện mobile nhất quán, dễ nhìn hơn.
