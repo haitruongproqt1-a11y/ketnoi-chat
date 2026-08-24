@@ -49,3 +49,6 @@
 - [x] Bổ sung đếm và hiển thị số tin nhắn chưa đọc theo từng cuộc trò chuyện.
 - [x] Hiển thị trạng thái đã gửi, đã nhận và đã xem cho tin nhắn gửi đi.
 - [x] Thêm tùy chọn riêng tư bật hoặc tắt gửi xác nhận đã xem trong phần Cá nhân.
+- [x] Bổ sung bộ lọc chỉ hiển thị các cuộc trò chuyện có tin chưa đọc.
+- [x] Thêm thao tác đánh dấu tất cả tin nhắn là đã đọc.
+- [x] Hiển thị giờ và phút cụ thể cạnh trạng thái đã xem của tin nhắn.

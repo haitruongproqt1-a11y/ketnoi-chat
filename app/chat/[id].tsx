@@ -111,7 +111,8 @@ export default function ChatScreen() {
 
 function MessageBubble({ message, isMine }: { message: MobileMessage; isMine: boolean }) {
   const label = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(`${message.createdAt}Z`));
-  const deliveryStatus = message.readAt ? "Đã xem" : message.deliveredAt ? "Đã nhận" : "Đã gửi";
+  const readTime = message.readAt ? new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.readAt)) : null;
+  const deliveryStatus = readTime ? `Đã xem · ${readTime}` : message.deliveredAt ? "Đã nhận" : "Đã gửi";
   return <View style={[styles.messageRow, isMine && styles.mineRow]}><View><View style={[styles.bubble, isMine ? styles.mineBubble : styles.peerBubble]}><Text style={[styles.messageText, isMine && styles.mineText]}>{message.body}</Text><Text style={[styles.time, isMine && styles.mineTime]}>{label}</Text></View>{isMine ? <Text style={styles.readReceipt}>{deliveryStatus}</Text> : null}</View></View>;
 }
 

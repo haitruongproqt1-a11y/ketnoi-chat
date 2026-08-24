@@ -63,5 +63,13 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const readResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/${first.user.id}/read`, { method: "POST", headers: { Authorization: `Bearer ${second.token}` } });
     expect(readResponse.status).toBe(204);
     await expect(receipt).resolves.toMatchObject({ readerId: second.user.id });
+
+    const secondMessage = await new Promise<{ ok: boolean }>((resolve) => firstSocket.emit("chat:send", { recipientId: second.user.id, body: `read-all-${Date.now()}` }, resolve));
+    expect(secondMessage.ok).toBe(true);
+    const readAllResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/read-all`, { method: "POST", headers: { Authorization: `Bearer ${second.token}` } });
+    expect(readAllResponse.status).toBe(204);
+    const remainingUnread = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/unread-counts`, { headers: { Authorization: `Bearer ${second.token}` } });
+    const remainingCounts = await remainingUnread.json() as Array<{ senderId: number; count: number }>;
+    expect(remainingCounts.find((item) => item.senderId === first.user.id)).toBeUndefined();
   }, 15_000);
 });

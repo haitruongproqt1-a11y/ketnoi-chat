@@ -39,6 +39,7 @@ export const mobileApi = {
   messages: (token: string, peerId: number) => request<MobileMessage[]>(`/api/messages/${peerId}`, {}, token),
   markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
+  markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),
   readReceiptPreference: (token: string) => request<{ readReceiptsEnabled: boolean }>("/api/preferences", {}, token),
   setReadReceiptPreference: (token: string, enabled: boolean) => request<{ readReceiptsEnabled: boolean }>("/api/preferences/read-receipts", { method: "PUT", body: JSON.stringify({ enabled }) }, token),
   callHistory: (token: string) => request<CallHistoryEntry[]>("/api/calls", {}, token),
