@@ -83,3 +83,4 @@
 - [x] Cho phép người dùng đổi tên hiển thị và ảnh đại diện tài khoản.
 - [x] Bảo toàn kiến trúc chat/media và WebRTC/Socket.io hiện có khi tích hợp tính năng mới.
 - [x] Chuyển đổi âm thanh cuộc gọi sang MP3 dưới 500 KB để lưu checkpoint.
+- [x] Tinh chỉnh bong bóng tin nhắn, header an toàn và metadata theo trải nghiệm chat Zalo.
