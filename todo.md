@@ -95,3 +95,5 @@
 - [x] Thêm thao tác vuốt tin nhắn để trả lời nhanh.
 - [x] Thêm haptic feedback nhẹ khi gửi tin nhắn.
 - [x] Thêm OpenRelay làm fallback ICE thử nghiệm khi chưa có TURN production riêng.
+- [x] Hiển thị trích dẫn tin nhắn theo cấu trúc rõ ràng trong luồng trả lời.
+- [x] Rà soát và hoàn thiện nút đổi camera trước/sau, tắt micro trong video call.
