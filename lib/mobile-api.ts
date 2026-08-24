@@ -48,9 +48,10 @@ export const mobileApi = {
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
   markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),
   mediaUrl: (path: string) => path.startsWith("http") ? path : `${API_URL}${path}`,
-  uploadMedia: async (token: string, asset: { uri: string; name: string; mimeType: string; size: number }, onProgress?: (progress: number) => void) => {
+  uploadMedia: async (token: string, asset: { uri: string; name: string; mimeType: string; size: number }, onProgress?: (progress: number) => void, onCancelReady?: (cancel: () => void) => void) => {
     if (Platform.OS !== "web") {
       const task = FileSystem.createUploadTask(`${API_URL}/api/media`, asset.uri, { uploadType: FileSystem.FileSystemUploadType.MULTIPART, fieldName: "file", mimeType: asset.mimeType, headers: { Authorization: `Bearer ${token}` } }, ({ totalBytesSent, totalBytesExpectedToSend }) => onProgress?.(totalBytesExpectedToSend > 0 ? Math.min(1, totalBytesSent / totalBytesExpectedToSend) : 0));
+      onCancelReady?.(() => { void task.cancelAsync(); });
       const result = await task.uploadAsync();
       if (!result) throw new Error("Tải tệp đã bị hủy trước khi hoàn tất");
       const body = JSON.parse(result.body || "{}") as ChatMedia & { message?: string; error?: string };
@@ -58,10 +59,12 @@ export const mobileApi = {
       onProgress?.(1);
       return { ...body, thumbnailUrl: body.thumbnailUrl ?? null } as ChatMedia;
     }
+    const controller = new AbortController();
+    onCancelReady?.(() => controller.abort());
     const form = new FormData();
     const file = Platform.OS === "web" ? await fetch(asset.uri).then((response) => response.blob()) : { uri: asset.uri, name: asset.name, type: asset.mimeType } as unknown as Blob;
     form.append("file", file, asset.name);
-    const response = await fetch(`${API_URL}/api/media`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+    const response = await fetch(`${API_URL}/api/media`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form, signal: controller.signal });
     const body = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(body.message ?? body.error ?? "Không thể tải tệp lên máy chủ");
     onProgress?.(1);

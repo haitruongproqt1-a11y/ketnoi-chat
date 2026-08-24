@@ -63,3 +63,6 @@
 - [x] Hiển thị tiến trình tải ảnh/video trước khi gửi tin nhắn.
 - [x] Tạo và gửi thumbnail cho video để hiển thị bản xem trước nhẹ.
 - [x] Cho phép tải xuống hoặc thu hồi media đã gửi theo đúng quyền người dùng.
+- [x] Thêm nút hủy upload ảnh/video đang diễn ra.
+- [x] Giới hạn thu hồi media trong vòng 15 phút kể từ khi gửi.
+- [x] Nén ảnh và video trước khi tải lên trên thiết bị native.
