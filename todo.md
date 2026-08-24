@@ -55,3 +55,6 @@
 - [x] Sắp xếp hội thoại theo tin mới nhất và cho phép ghim hội thoại quan trọng.
 - [x] Tìm kiếm nội dung tin nhắn trong các cuộc trò chuyện.
 - [x] Thêm thao tác nhanh lưu trữ, xóa và tắt thông báo cho hội thoại.
+- [x] Tô sáng từ khóa và lọc kết quả tìm kiếm theo ngày hoặc người gửi.
+- [x] Cho phép chọn nhiều hội thoại và thực hiện thao tác hàng loạt.
+- [x] Tạo mục đã lưu trữ và cho phép khôi phục hội thoại về danh sách chính.

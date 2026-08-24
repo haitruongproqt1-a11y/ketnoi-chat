@@ -56,6 +56,10 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     expect(pinnedResponse.ok).toBe(true);
     expect((await pinnedResponse.json() as { pinned: boolean }).pinned).toBe(!existingConversation!.pinned);
     await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations/${second.user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ pinned: existingConversation!.pinned }) });
+    const archiveResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations/${second.user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ archived: true }) });
+    expect((await archiveResponse.json() as { archived: boolean }).archived).toBe(true);
+    const restoreResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations/${second.user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ archived: false }) });
+    expect((await restoreResponse.json() as { archived: boolean }).archived).toBe(false);
     const searchResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/search?q=feedback-`, { headers: { Authorization: `Bearer ${second.token}` } });
     expect(searchResponse.ok).toBe(true);
     expect((await searchResponse.json() as Array<{ id: number }>).some((item) => item.id === message.id)).toBe(true);
