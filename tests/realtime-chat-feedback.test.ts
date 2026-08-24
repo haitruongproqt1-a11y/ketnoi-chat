@@ -5,6 +5,7 @@ type AuthResponse = { token: string; user: { id: number } };
 type TypingPayload = { fromUserId: number; isTyping: boolean };
 type ReadPayload = { readerId: number; messageIds: number[]; readAt: string };
 type MessagePayload = { id: number; senderId: number; recipientId: number; deliveredAt: string | null; media?: { url: string; kind: "image" | "video"; name: string } | null };
+type MediaRecallPayload = { messageId: number; revokedAt: string };
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 const firstUsername = process.env.KETNOI_TEST_USER_A;
@@ -56,6 +57,11 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const mediaReply = await new Promise<{ ok: boolean; message?: MessagePayload }>((resolve) => firstSocket.emit("chat:send", { recipientId: second.user.id, body: "", media }, resolve));
     expect(mediaReply.ok).toBe(true);
     await expect(mediaIncoming).resolves.toMatchObject({ media: { url: media.url, kind: "image" } });
+    const recall = once<MediaRecallPayload>(secondSocket, "chat:media-recalled", (payload) => payload.messageId === mediaReply.message?.id);
+    const recallResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/${mediaReply.message!.id}/media`, { method: "DELETE", headers: { Authorization: `Bearer ${first.token}` } });
+    expect(recallResponse.ok).toBe(true);
+    expect((await recallResponse.json() as { media: unknown; mediaRevokedAt: string | null }).media).toBeNull();
+    await expect(recall).resolves.toMatchObject({ messageId: mediaReply.message!.id });
 
     const conversationsResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations`, { headers: { Authorization: `Bearer ${first.token}` } });
     expect(conversationsResponse.ok).toBe(true);

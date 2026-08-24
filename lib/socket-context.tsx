@@ -9,6 +9,7 @@ type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; desc
 type ChatTyping = { fromUserId: number; isTyping: boolean };
 type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type ChatDeliveryReceipt = { recipientId: number; messageIds: number[]; deliveredAt: string };
+type ChatMediaRecall = { messageId: number; revokedAt: string };
 type SocketContextValue = {
   socket: Socket | null;
   onlineIds: number[];
@@ -16,6 +17,7 @@ type SocketContextValue = {
   lastTyping: ChatTyping | null;
   lastReadReceipt: ChatReadReceipt | null;
   lastDeliveryReceipt: ChatDeliveryReceipt | null;
+  lastMediaRecall: ChatMediaRecall | null;
   incomingOffer: CallSignal | null;
   latestSignal: { event: SignalEvent; payload: CallSignal } | null;
   sendMessage: (recipientId: number, body: string, media?: ChatMedia) => Promise<MobileMessage>;
@@ -36,11 +38,12 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [lastTyping, setLastTyping] = useState<ChatTyping | null>(null);
   const [lastReadReceipt, setLastReadReceipt] = useState<ChatReadReceipt | null>(null);
   const [lastDeliveryReceipt, setLastDeliveryReceipt] = useState<ChatDeliveryReceipt | null>(null);
+  const [lastMediaRecall, setLastMediaRecall] = useState<ChatMediaRecall | null>(null);
   const [incomingOffer, setIncomingOffer] = useState<CallSignal | null>(null);
   const [latestSignal, setLatestSignal] = useState<SocketContextValue["latestSignal"]>(null);
 
   useEffect(() => {
-    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); return; }
+    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); return; }
     const instance = io(SOCKET_URL, { auth: { token }, transports: ["websocket", "polling"] });
     socketRef.current = instance;
     setSocket(instance);
@@ -50,6 +53,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     instance.on("chat:typing", (payload: ChatTyping) => setLastTyping(payload));
     instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     instance.on("chat:delivered", (payload: ChatDeliveryReceipt) => setLastDeliveryReceipt(payload));
+    instance.on("chat:media-recalled", (payload: ChatMediaRecall) => setLastMediaRecall(payload));
     const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup"];
     signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
       if (event === "call:offer") setIncomingOffer(payload);
@@ -65,6 +69,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     lastTyping,
     lastReadReceipt,
     lastDeliveryReceipt,
+    lastMediaRecall,
     incomingOffer,
     latestSignal,
     sendMessage: (recipientId, body, media) => new Promise<MobileMessage>((resolve, reject) => {
@@ -79,7 +84,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     sendSignal: (event, payload) => socketRef.current?.emit(event, payload),
     clearSignal: () => setLatestSignal(null),
     clearIncomingOffer: () => setIncomingOffer(null),
-  }), [incomingOffer, lastDeliveryReceipt, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, socket]);
+  }), [incomingOffer, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, socket]);
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 

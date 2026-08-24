@@ -60,3 +60,6 @@
 - [x] Tạo mục đã lưu trữ và cho phép khôi phục hội thoại về danh sách chính.
 - [x] Bổ sung chọn và tải ảnh/video từ thiết bị trong chat riêng.
 - [x] Lưu trữ, đồng bộ và hiển thị ảnh/video trong luồng tin nhắn realtime.
+- [x] Hiển thị tiến trình tải ảnh/video trước khi gửi tin nhắn.
+- [x] Tạo và gửi thumbnail cho video để hiển thị bản xem trước nhẹ.
+- [x] Cho phép tải xuống hoặc thu hồi media đã gửi theo đúng quyền người dùng.
