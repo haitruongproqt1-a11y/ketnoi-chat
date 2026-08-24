@@ -64,7 +64,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS", "CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"],
+    permissions: ["POST_NOTIFICATIONS", "CAMERA", "RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS", "ACCESS_NETWORK_STATE"],
     intentFilters: [
       {
         action: "VIEW",
@@ -86,6 +86,7 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
+    "./plugins/with-ketnoi-android-permissions.cjs",
     [
       "expo-audio",
       {

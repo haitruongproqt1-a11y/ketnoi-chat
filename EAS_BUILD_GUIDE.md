@@ -32,7 +32,11 @@ Server phải chạy Socket.io, hỗ trợ HTTPS/WSS, có endpoint `GET /health`
 
 ## 3. Tạo APK development build
 
-Profile `development` trong `eas.json` đã dùng `developmentClient: true`, `distribution: internal` và `buildType: apk`. Chạy:
+Profile `development` trong `eas.json` đã dùng `developmentClient: true`, `distribution: internal` và `buildType: apk`. Cấu hình Expo TypeScript (`app.config.ts`) là nguồn cấu hình chuẩn của dự án; khi EAS prebuild, plugin `with-ketnoi-android-permissions` đảm bảo AndroidManifest.xml có các quyền `CAMERA`, `RECORD_AUDIO`, `MODIFY_AUDIO_SETTINGS` và `ACCESS_NETWORK_STATE`.
+
+> Không cần tự tạo hay sửa `app.json`/`android/AndroidManifest.xml` trong dự án managed Expo này. EAS sẽ sinh AndroidManifest từ `app.config.ts` và plugin trong quá trình build, nhờ đó quyền không bị mất sau lần prebuild kế tiếp.
+
+Khi checkpoint đã sẵn sàng, tạo APK qua nút **Publish/Xuất bản** trong giao diện dự án. Hệ thống sẽ bắt đầu build và cung cấp APK tải về. Nếu dùng EAS CLI trên máy của bạn, chạy:
 
 ```bash
 eas build --platform android --profile development
