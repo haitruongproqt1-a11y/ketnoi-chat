@@ -27,3 +27,5 @@
 - [ ] Xác minh remote push notification trên development build cài ở thiết bị thật.
 - [x] Khởi động lại preview web và tạo QR để kiểm thử Expo/Development Build trên điện thoại thật.
 - [x] Khôi phục và xác minh Metro/Expo web preview tại cổng 8081 cho người dùng xem giao diện.
+- [x] Khắc phục API đăng ký/đăng nhập cho preview web qua backend và proxy nội bộ.
+- [x] Tạo tài khoản mẫu và kiểm thử end-to-end đăng ký/đăng nhập trên preview web.
