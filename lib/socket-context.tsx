@@ -20,7 +20,7 @@ type SocketContextValue = {
   lastMediaRecall: ChatMediaRecall | null;
   incomingOffer: CallSignal | null;
   latestSignal: { event: SignalEvent; payload: CallSignal } | null;
-  sendMessage: (recipientId: number, body: string, media?: ChatMedia) => Promise<MobileMessage>;
+  sendMessage: (recipientId: number, body: string, media?: ChatMedia, mediaItems?: ChatMedia[]) => Promise<MobileMessage>;
   sendTyping: (recipientId: number, isTyping: boolean) => void;
   sendSignal: (event: SignalEvent, payload: CallSignal) => void;
   clearSignal: () => void;
@@ -72,10 +72,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     lastMediaRecall,
     incomingOffer,
     latestSignal,
-    sendMessage: (recipientId, body, media) => new Promise<MobileMessage>((resolve, reject) => {
+    sendMessage: (recipientId, body, media, mediaItems) => new Promise<MobileMessage>((resolve, reject) => {
       const instance = socketRef.current;
       if (!instance) { reject(new Error("Socket chưa sẵn sàng")); return; }
-      instance.emit("chat:send", { recipientId, body, media }, (reply: { ok: boolean; message?: MobileMessage; error?: string }) => {
+      instance.emit("chat:send", { recipientId, body, media, mediaItems }, (reply: { ok: boolean; message?: MobileMessage; error?: string }) => {
         if (reply.ok && reply.message) resolve(reply.message);
         else reject(new Error(reply.error ?? "Không gửi được tin nhắn"));
       });

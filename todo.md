@@ -66,3 +66,6 @@
 - [x] Thêm nút hủy upload ảnh/video đang diễn ra.
 - [x] Giới hạn thu hồi media trong vòng 15 phút kể từ khi gửi.
 - [x] Nén ảnh và video trước khi tải lên trên thiết bị native.
+- [x] Hỗ trợ chọn và gửi nhiều ảnh/video trong một tin nhắn.
+- [x] Hiển thị trạng thái cuộc gọi nhỡ, đã nhận và đã nghe trong luồng chat.
+- [x] Hoàn thiện thông báo tin nhắn và cuộc gọi theo trạng thái hội thoại.

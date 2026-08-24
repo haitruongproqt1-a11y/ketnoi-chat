@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 type AuthResponse = { token: string; user: { id: number } };
 type TypingPayload = { fromUserId: number; isTyping: boolean };
 type ReadPayload = { readerId: number; messageIds: number[]; readAt: string };
-type MessagePayload = { id: number; senderId: number; recipientId: number; deliveredAt: string | null; media?: { url: string; kind: "image" | "video"; name: string } | null };
+type MessagePayload = { id: number; senderId: number; recipientId: number; deliveredAt: string | null; media?: { url: string; kind: "image" | "video"; name: string } | null; mediaItems?: Array<{ url: string }>; callEvent?: { callId: string; status: string } | null };
 type MediaRecallPayload = { messageId: number; revokedAt: string };
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -57,6 +57,15 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const mediaReply = await new Promise<{ ok: boolean; message?: MessagePayload }>((resolve) => firstSocket.emit("chat:send", { recipientId: second.user.id, body: "", media }, resolve));
     expect(mediaReply.ok).toBe(true);
     await expect(mediaIncoming).resolves.toMatchObject({ media: { url: media.url, kind: "image" } });
+    const batchIncoming = once<MessagePayload>(secondSocket, "chat:new", (payload) => payload.mediaItems?.length === 2);
+    const batchReply = await new Promise<{ ok: boolean; message?: MessagePayload }>((resolve) => firstSocket.emit("chat:send", { recipientId: second.user.id, body: "", mediaItems: [media, media] }, resolve));
+    expect(batchReply.ok).toBe(true);
+    await expect(batchIncoming).resolves.toMatchObject({ mediaItems: [{ url: media.url }, { url: media.url }] });
+    const callId = `call-feedback-${Date.now()}`;
+    const callEvent = once<MessagePayload>(secondSocket, "chat:new", (payload) => payload.callEvent?.callId === callId);
+    firstSocket.emit("call:offer", { toUserId: second.user.id, callId, withVideo: false });
+    firstSocket.emit("call:hangup", { toUserId: second.user.id, callId, reason: "missed" });
+    await expect(callEvent).resolves.toMatchObject({ callEvent: { callId, status: "missed" } });
     const recall = once<MediaRecallPayload>(secondSocket, "chat:media-recalled", (payload) => payload.messageId === mediaReply.message?.id);
     const recallResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/${mediaReply.message!.id}/media`, { method: "DELETE", headers: { Authorization: `Bearer ${first.token}` } });
     expect(recallResponse.ok).toBe(true);
