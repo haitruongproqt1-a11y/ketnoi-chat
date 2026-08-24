@@ -4,7 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 type AuthResponse = { token: string; user: { id: number } };
 type TypingPayload = { fromUserId: number; isTyping: boolean };
 type ReadPayload = { readerId: number; messageIds: number[]; readAt: string };
-type MessagePayload = { id: number; senderId: number; recipientId: number };
+type MessagePayload = { id: number; senderId: number; recipientId: number; deliveredAt: string | null };
 
 const apiUrl = process.env.EXPO_PUBLIC_API_URL;
 const firstUsername = process.env.KETNOI_TEST_USER_A;
@@ -45,6 +45,19 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const reply = await new Promise<{ ok: boolean; message?: MessagePayload }>((resolve) => firstSocket.emit("chat:send", { recipientId: second.user.id, body: `feedback-${Date.now()}` }, resolve));
     expect(reply.ok).toBe(true);
     const message = await incomingMessage;
+    expect(message.deliveredAt).toBeTruthy();
+
+    const unreadResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/unread-counts`, { headers: { Authorization: `Bearer ${second.token}` } });
+    expect(unreadResponse.ok).toBe(true);
+    const unreadCounts = await unreadResponse.json() as Array<{ senderId: number; count: number }>;
+    expect(unreadCounts.find((item) => item.senderId === first.user.id)?.count).toBeGreaterThan(0);
+
+    const preferenceResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/preferences`, { headers: { Authorization: `Bearer ${second.token}` } });
+    expect(preferenceResponse.ok).toBe(true);
+    const preference = await preferenceResponse.json() as { readReceiptsEnabled: boolean };
+    const updatePreference = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/preferences/read-receipts`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${second.token}` }, body: JSON.stringify({ enabled: !preference.readReceiptsEnabled }) });
+    expect(updatePreference.ok).toBe(true);
+    await fetch(`${apiUrl!.replace(/\/$/, "")}/api/preferences/read-receipts`, { method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${second.token}` }, body: JSON.stringify({ enabled: preference.readReceiptsEnabled }) });
 
     const receipt = once<ReadPayload>(firstSocket, "chat:read", (payload) => payload.readerId === second.user.id && payload.messageIds.includes(message.id));
     const readResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/${first.user.id}/read`, { method: "POST", headers: { Authorization: `Bearer ${second.token}` } });

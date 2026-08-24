@@ -46,3 +46,6 @@
 - [x] Bổ sung trạng thái đang gõ realtime giữa hai người trong cuộc trò chuyện.
 - [x] Bổ sung xác nhận đã đọc tin nhắn realtime và hiển thị trạng thái trong chat.
 - [x] Tự đăng nhập sau đăng ký, bổ sung tùy chọn ghi nhớ đăng nhập và cải thiện loading/lỗi xác thực.
+- [x] Bổ sung đếm và hiển thị số tin nhắn chưa đọc theo từng cuộc trò chuyện.
+- [x] Hiển thị trạng thái đã gửi, đã nhận và đã xem cho tin nhắn gửi đi.
+- [x] Thêm tùy chọn riêng tư bật hoặc tắt gửi xác nhận đã xem trong phần Cá nhân.
