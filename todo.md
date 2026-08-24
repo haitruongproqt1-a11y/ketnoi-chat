@@ -86,3 +86,7 @@
 - [x] Tinh chỉnh bong bóng tin nhắn, header an toàn và metadata theo trải nghiệm chat Zalo.
 - [x] Thêm hình nền riêng và được lưu theo từng cuộc trò chuyện.
 - [x] Bổ sung bảng chọn emoji và sticker trong khung soạn tin.
+- [x] Rà soát media/thumbnail và typing realtime cho Android.
+- [x] Kiểm tra cấu hình Android, quyền camera/micro và profile APK.
+- [x] Xác nhận URL backend công khai phù hợp cho thiết bị Android.
+- [ ] Tạo APK Android qua nút Publish trong giao diện quản lý sau checkpoint.

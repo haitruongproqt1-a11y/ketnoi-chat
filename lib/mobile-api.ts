@@ -8,13 +8,14 @@ import { getApiBaseUrl } from "@/constants/oauth";
  * Android emulator mặc định dùng 10.0.2.2; thiết bị thật cần IP LAN hoặc HTTPS công khai.
  */
 const localHost = Platform.OS === "android" ? "http://10.0.2.2:3000" : "http://127.0.0.1:3000";
+const publicChatApiUrl = "https://ketnoichat-rjoe76pz.manus.space";
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? getApiBaseUrl() ?? localHost;
+export const API_URL = process.env.EXPO_PUBLIC_API_URL ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? getApiBaseUrl() ?? (Platform.OS === "web" ? localHost : publicChatApiUrl);
 export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; avatarUrl: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
-export type ChatMedia = { url: string; kind: "image" | "video"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
+export type ChatMedia = { url: string; kind: "image" | "video" | "file"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
 export type ChatCallEvent = { callId: string; kind: "audio" | "video"; status: "missed" | "answered" | "declined" | "ended"; durationSeconds: number };
 export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null; media: ChatMedia | null; mediaItems?: ChatMedia[]; mediaRevokedAt: string | null; callEvent?: ChatCallEvent | null };
 export type ConversationSummary = { peer: MobileUser; lastMessage: MobileMessage | null; unreadCount: number; pinned: boolean; archived: boolean; muted: boolean };
