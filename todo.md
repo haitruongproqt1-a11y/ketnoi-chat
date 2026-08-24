@@ -76,3 +76,4 @@
 - [x] Cho phép chọn nhiều người nhận khi chuyển tiếp media.
 - [x] Thêm caption riêng cho từng ảnh/video trong nhóm gửi đi.
 - [x] Hiển thị lịch sử cuộc gọi đầy đủ trong cuộc trò chuyện.
+- [x] Tái tổ chức bố cục chat dễ nhìn và làm rõ bảng soạn tin đang nhập.
