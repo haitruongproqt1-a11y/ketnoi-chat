@@ -16,3 +16,7 @@
 - [x] Đồng bộ thao tác trả lời/từ chối/kết thúc giữa CallKeep, thông báo và màn hình WebRTC.
 - [x] Hoàn thiện bộ đếm thời lượng, trạng thái kết nối và phản hồi trực quan cho mic/camera/loa/chia sẻ màn hình.
 - [x] Hợp nhất CallKeep và thông báo đẩy với phiên bản giao diện gọi, nhạc chuông và phản hồi âm thanh mới nhất mà không ghi đè chat/media.
+- [x] Rà soát CallKeep, ConnectionService và quyền native iOS/Android trước khi build APK.
+- [x] Rà soát luồng WebRTC, TURN/ICE, signaling và chia sẻ màn hình.
+- [x] Chạy kiểm tra cấu hình prebuild, kiểu dữ liệu và kiểm thử hồi quy liên quan.
+- [x] Sửa mọi lỗi phát hiện được và xác nhận trạng thái build-ready.

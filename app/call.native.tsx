@@ -13,7 +13,7 @@ import { mobileApi } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
 import { startCallWaitingTone, startIncomingRingtone, stopCallWaitingTone, stopIncomingRingtone } from "@/lib/sound-feedback";
-import { clearSystemCall, endSystemCall, markSystemCallConnected, presentOutgoingSystemCall, setSystemCallMuted, setSystemCallSpeaker } from "@/lib/callkeep";
+import { clearSystemCall, endSystemCall, initializeCallKeep, markSystemCallConnected, presentOutgoingSystemCall, setSystemCallMuted, setSystemCallSpeaker } from "@/lib/callkeep";
 
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 type PreviewCorner = "left" | "right";
@@ -114,6 +114,7 @@ export default function CallScreen() {
 
   const makeOutgoingCall = async () => {
     try {
+      if (!await initializeCallKeep()) throw new Error("Không thể khởi tạo giao diện cuộc gọi hệ thống.");
       presentOutgoingSystemCall({ callId: callId.current, peerId, peerName, withVideo, direction: "outgoing" });
       const stream = await getMedia();
       const peer = await setupPeer();
@@ -196,6 +197,17 @@ export default function CallScreen() {
     }
     if (event === "call:screen-share") setRemoteIsScreenSharing(Boolean(payload.isScreenSharing));
     if (event === "call:hangup") stopCall(false);
+    if (event === "call:error") {
+      peerRef.current?.close();
+      peerRef.current = null;
+      localRef.current?.getTracks().forEach((track: any) => track.stop());
+      localRef.current = null;
+      InCallManager.stop();
+      setLocalStream(null);
+      setRemoteStream(null);
+      setError(payload.message ?? "Không thể thiết lập cuộc gọi.");
+      setCallState("error");
+    }
   }, [latestSignal]);
 
   useEffect(() => {

@@ -149,6 +149,18 @@ export default function WebCallScreen() {
     }
     if (event === "call:screen-share") setRemoteIsScreenSharing(Boolean(payload.isScreenSharing));
     if (event === "call:hangup") stopCall(false);
+    if (event === "call:error") {
+      peerRef.current?.close();
+      peerRef.current = null;
+      localRef.current?.getTracks().forEach((track: any) => track.stop());
+      screenRef.current?.getTracks().forEach((track: any) => track.stop());
+      localRef.current = null;
+      screenRef.current = null;
+      setLocalStream(null);
+      setRemoteStream(null);
+      setError(payload.message ?? "Không thể thiết lập cuộc gọi.");
+      setCallState("error");
+    }
   }, [latestSignal]);
 
   useEffect(() => {

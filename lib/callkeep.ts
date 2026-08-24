@@ -1,6 +1,8 @@
 import { PermissionsAndroid, Platform } from "react-native";
 import RNCallKeep, { CONSTANTS } from "react-native-callkeep";
 
+import { toSystemCallUuid } from "./call-id";
+
 export type SystemCall = {
   callId: string;
   peerId: number;
@@ -11,6 +13,7 @@ export type SystemCall = {
 
 const activeCalls = new Map<string, SystemCall>();
 let initialized = false;
+let initialization: Promise<boolean> | null = null;
 
 const options = {
   ios: {
@@ -37,54 +40,68 @@ const options = {
 
 export async function initializeCallKeep() {
   if (initialized || Platform.OS === "web") return true;
-  initialized = await RNCallKeep.setup(options);
-  RNCallKeep.setReachable();
-  if (Platform.OS === "android") RNCallKeep.setAvailable(true);
-  return initialized;
+  if (!initialization) {
+    initialization = RNCallKeep.setup(options)
+      .then((ready) => {
+        initialized = ready;
+        if (ready) {
+          RNCallKeep.setReachable();
+          if (Platform.OS === "android") RNCallKeep.setAvailable(true);
+        }
+        return ready;
+      })
+      .finally(() => { initialization = null; });
+  }
+  return initialization;
 }
 
 export function presentIncomingSystemCall(call: SystemCall) {
   if (Platform.OS === "web") return;
-  activeCalls.set(call.callId, call);
-  RNCallKeep.displayIncomingCall(call.callId, `@${call.peerId}`, call.peerName, "generic", call.withVideo, {
+  const callUuid = toSystemCallUuid(call.callId);
+  if (activeCalls.has(callUuid)) return;
+  activeCalls.set(callUuid, call);
+  RNCallKeep.displayIncomingCall(callUuid, `@${call.peerId}`, call.peerName, "generic", call.withVideo, {
     ios: { supportsHolding: false, supportsDTMF: false, supportsGrouping: false, supportsUngrouping: false },
   });
 }
 
 export function presentOutgoingSystemCall(call: SystemCall) {
   if (Platform.OS === "web") return;
-  activeCalls.set(call.callId, call);
-  RNCallKeep.startCall(call.callId, `@${call.peerId}`, call.peerName, "generic", call.withVideo);
-  if (Platform.OS === "ios") RNCallKeep.reportConnectingOutgoingCallWithUUID(call.callId);
+  const callUuid = toSystemCallUuid(call.callId);
+  activeCalls.set(callUuid, call);
+  RNCallKeep.startCall(callUuid, `@${call.peerId}`, call.peerName, "generic", call.withVideo);
+  if (Platform.OS === "ios") RNCallKeep.reportConnectingOutgoingCallWithUUID(callUuid);
 }
 
 export function markSystemCallConnected(callId: string) {
   if (Platform.OS === "web") return;
-  if (Platform.OS === "ios") RNCallKeep.reportConnectedOutgoingCallWithUUID(callId);
-  if (Platform.OS === "android") RNCallKeep.setCurrentCallActive(callId);
+  const callUuid = toSystemCallUuid(callId);
+  if (Platform.OS === "ios") RNCallKeep.reportConnectedOutgoingCallWithUUID(callUuid);
+  if (Platform.OS === "android") RNCallKeep.setCurrentCallActive(callUuid);
 }
 
 export function setSystemCallMuted(callId: string, muted: boolean) {
-  if (Platform.OS === "web") return;
-  RNCallKeep.setMutedCall(callId, muted);
+  if (Platform.OS !== "ios") return;
+  RNCallKeep.setMutedCall(toSystemCallUuid(callId), muted);
 }
 
 export function setSystemCallSpeaker(callId: string, speakerOn: boolean) {
-  if (Platform.OS === "android") RNCallKeep.toggleAudioRouteSpeaker(callId, speakerOn);
+  if (Platform.OS === "android") RNCallKeep.toggleAudioRouteSpeaker(toSystemCallUuid(callId), speakerOn);
 }
 
 export function endSystemCall(callId: string, reason = CONSTANTS.END_CALL_REASONS.REMOTE_ENDED) {
   if (Platform.OS === "web") return;
-  activeCalls.delete(callId);
-  RNCallKeep.reportEndCallWithUUID(callId, reason);
+  const callUuid = toSystemCallUuid(callId);
+  activeCalls.delete(callUuid);
+  RNCallKeep.reportEndCallWithUUID(callUuid, reason);
 }
 
 export function getSystemCall(callId: string) {
-  return activeCalls.get(callId) ?? null;
+  return activeCalls.get(toSystemCallUuid(callId)) ?? null;
 }
 
 export function clearSystemCall(callId: string) {
-  activeCalls.delete(callId);
+  activeCalls.delete(toSystemCallUuid(callId));
 }
 
 export { RNCallKeep };

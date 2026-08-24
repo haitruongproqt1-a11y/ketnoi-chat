@@ -33,6 +33,7 @@ module.exports = function withKetNoiAndroidPermissions(config) {
             "android:name": "io.wazo.callkeep.VoiceConnectionService",
             "android:label": "Kết Nối",
             "android:permission": "android.permission.BIND_TELECOM_CONNECTION_SERVICE",
+            "android:exported": "true",
             "android:foregroundServiceType": "camera|microphone",
           },
           "intent-filter": [{ action: [{ $: { "android:name": "android.telecom.ConnectionService" } }] }],

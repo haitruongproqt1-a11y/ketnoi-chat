@@ -26,7 +26,7 @@ export function CallKeepBridge() {
       if (!call) return;
       sendSignal("call:hangup", { toUserId: call.peerId, callId: call.callId, reason: "declined" });
       void mobileApi.declineCall(token, call.callId).catch(() => undefined);
-      clearSystemCall(call.callId);
+      clearSystemCall(callUUID);
       clearIncomingOffer();
     });
     return () => { answer.remove(); end.remove(); };
@@ -34,8 +34,13 @@ export function CallKeepBridge() {
 
   useEffect(() => {
     if (!incomingOffer?.fromUserId || Platform.OS === "web" || displayedCallIds.current.has(incomingOffer.callId)) return;
-    displayedCallIds.current.add(incomingOffer.callId);
-    presentIncomingSystemCall({ callId: incomingOffer.callId, peerId: incomingOffer.fromUserId, peerName: incomingOffer.callerName ?? `Người dùng #${incomingOffer.fromUserId}`, withVideo: Boolean(incomingOffer.withVideo), direction: "incoming" });
+    void initializeCallKeep()
+      .then((ready) => {
+        if (!ready || displayedCallIds.current.has(incomingOffer.callId)) return;
+        displayedCallIds.current.add(incomingOffer.callId);
+        presentIncomingSystemCall({ callId: incomingOffer.callId, peerId: incomingOffer.fromUserId!, peerName: incomingOffer.callerName ?? `Người dùng #${incomingOffer.fromUserId}`, withVideo: Boolean(incomingOffer.withVideo), direction: "incoming" });
+      })
+      .catch(() => undefined);
   }, [incomingOffer]);
 
   return null;
