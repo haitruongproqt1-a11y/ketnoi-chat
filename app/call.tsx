@@ -44,6 +44,7 @@ export default function WebCallScreen() {
   const [callState, setCallState] = useState<CallState>(direction === "incoming" ? "incoming" : "connecting");
   const [muted, setMuted] = useState(false);
   const [cameraOn, setCameraOn] = useState(withVideo);
+  const [frontCamera, setFrontCamera] = useState(true);
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -168,6 +169,25 @@ export default function WebCallScreen() {
     setCameraOn(next);
   };
 
+  const switchCamera = async () => {
+    if (!withVideo || isScreenSharing || !navigator.mediaDevices?.getUserMedia) return;
+    try {
+      const nextFront = !frontCamera;
+      const replacement = await navigator.mediaDevices.getUserMedia({ video: { facingMode: nextFront ? "user" : "environment", frameRate: { ideal: 30 } }, audio: false });
+      const nextTrack = replacement.getVideoTracks()[0];
+      if (!nextTrack) throw new Error("Không tìm thấy camera phù hợp.");
+      await replaceOutgoingVideo(nextTrack);
+      const currentTrack = localRef.current?.getVideoTracks?.()[0];
+      if (currentTrack && localRef.current) localRef.current.removeTrack(currentTrack);
+      currentTrack?.stop();
+      localRef.current?.addTrack(nextTrack);
+      setLocalStream(localRef.current);
+      setFrontCamera(nextFront);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "Không thể chuyển camera trên trình duyệt này.");
+    }
+  };
+
   const replaceOutgoingVideo = async (track: any | null) => {
     const sender = peerRef.current?.getSenders().find((item) => item.track?.kind === "video");
     if (!sender) throw new Error("Không tìm thấy luồng video để thay thế.");
@@ -223,7 +243,7 @@ export default function WebCallScreen() {
     return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#071A31]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.incomingPage}><Text style={styles.kicker}>{withVideo ? "CUỘC GỌI VIDEO ĐẾN" : "CUỘC GỌI THOẠI ĐẾN"}</Text><View style={styles.avatar}><Text style={styles.initials}>{peerName.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()}</Text></View><Text style={styles.name}>{peerName}</Text><Text style={styles.incomingCopy}>Đang gọi cho bạn…</Text><View style={styles.incomingControls}><Control label="Từ chối" tone="danger" onPress={decline} /><Control label="Nhận cuộc gọi" tone="success" onPress={() => void acceptCall()} /></View></View></ScreenContainer>;
   }
 
-  return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#071A31]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.page}><View style={styles.top}><View><Text style={styles.kicker}>{withVideo ? "VIDEO WEBRTC P2P" : "THOẠI WEBRTC P2P"}</Text><Text style={styles.name}>{peerName}</Text></View><Text style={styles.timer}>{status}</Text></View><View style={[styles.stage, !withVideo && styles.audioStage]}>{withVideo && remoteStream ? <VideoSurface stream={remoteStream} muted={false} style={styles.remoteVideo} /> : <View style={styles.person}><View style={styles.avatar}><Text style={styles.initials}>{peerName.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()}</Text></View><Text style={styles.waiting}>{callState === "error" ? "Không thể kết nối" : "Đang chờ luồng media từ người bên kia…"}</Text></View>}{remoteIsScreenSharing ? <View style={styles.remoteShareBadge}><Text style={styles.remoteShareText}>Người bên kia đang chia sẻ màn hình</Text></View> : null}{withVideo && previewStream ? <View style={styles.preview}><VideoSurface stream={previewStream} muted style={styles.previewVideo} /><Text style={styles.previewLabel}>{isScreenSharing ? "Màn hình của bạn" : "Camera của bạn"}</Text></View> : null}</View><View style={styles.controls}><Control label={muted ? "Bật mic" : "Tắt mic"} active={muted} onPress={toggleMute} /><Control label={cameraOn ? "Tắt camera" : "Bật camera"} active={!cameraOn} disabled={!withVideo} onPress={toggleCamera} />{withVideo ? <Control label={isScreenSharing ? "Dừng chia sẻ" : "Chia sẻ"} active={isScreenSharing} onPress={() => void toggleScreenShare()} /> : null}<Control label="Kết thúc" tone="danger" onPress={leave} /></View>{error ? <Text style={styles.error}>{error}</Text> : null}</View></ScreenContainer>;
+  return <ScreenContainer edges={["top", "bottom", "left", "right"]} containerClassName="bg-[#071A31]" className="flex-1"><Stack.Screen options={{ headerShown: false }} /><View style={styles.page}><View style={styles.top}><View><Text style={styles.kicker}>{withVideo ? "VIDEO WEBRTC P2P" : "THOẠI WEBRTC P2P"}</Text><Text style={styles.name}>{peerName}</Text></View><Text style={styles.timer}>{status}</Text></View><View style={[styles.stage, !withVideo && styles.audioStage]}>{withVideo && remoteStream ? <VideoSurface stream={remoteStream} muted={false} style={styles.remoteVideo} /> : <View style={styles.person}><View style={styles.avatar}><Text style={styles.initials}>{peerName.split(" ").map((word) => word[0]).slice(0, 2).join("").toUpperCase()}</Text></View><Text style={styles.waiting}>{callState === "error" ? "Không thể kết nối" : "Đang chờ luồng media từ người bên kia…"}</Text></View>}{remoteIsScreenSharing ? <View style={styles.remoteShareBadge}><Text style={styles.remoteShareText}>Người bên kia đang chia sẻ màn hình</Text></View> : null}{withVideo && previewStream ? <View style={styles.preview}><VideoSurface stream={previewStream} muted style={styles.previewVideo} /><Text style={styles.previewLabel}>{isScreenSharing ? "Màn hình của bạn" : "Camera của bạn"}</Text></View> : null}</View><View style={styles.controls}><Control label={muted ? "Bật mic" : "Tắt mic"} active={muted} onPress={toggleMute} /><Control label={cameraOn ? "Tắt camera" : "Bật camera"} active={!cameraOn} disabled={!withVideo} onPress={toggleCamera} />{withVideo ? <Control label="Đổi camera" disabled={isScreenSharing} onPress={() => void switchCamera()} /> : null}{withVideo ? <Control label={isScreenSharing ? "Dừng chia sẻ" : "Chia sẻ"} active={isScreenSharing} onPress={() => void toggleScreenShare()} /> : null}<Control label="Kết thúc" tone="danger" onPress={leave} /></View>{error ? <Text style={styles.error}>{error}</Text> : null}</View></ScreenContainer>;
 }
 
 function Control({ label, active = false, disabled = false, tone = "default", onPress }: { label: string; active?: boolean; disabled?: boolean; tone?: "default" | "danger" | "success"; onPress: () => void }) {

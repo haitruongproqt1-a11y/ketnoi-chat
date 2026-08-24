@@ -97,3 +97,6 @@
 - [x] Thêm OpenRelay làm fallback ICE thử nghiệm khi chưa có TURN production riêng.
 - [x] Hiển thị trích dẫn tin nhắn theo cấu trúc rõ ràng trong luồng trả lời.
 - [x] Rà soát và hoàn thiện nút đổi camera trước/sau, tắt micro trong video call.
+- [x] Hoàn thiện bản web mô phỏng cho chat và trải nghiệm cuộc gọi trên trình duyệt.
+- [x] Tách cấu hình frontend/backend để sẵn sàng triển khai lên hạ tầng cloud khác.
+- [x] Soạn hướng dẫn build APK thủ công bằng Expo/EAS CLI trên máy cá nhân.
