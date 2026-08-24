@@ -47,6 +47,19 @@ describe.skipIf(!hasCredentials)("realtime chat feedback", () => {
     const message = await incomingMessage;
     expect(message.deliveredAt).toBeTruthy();
 
+    const conversationsResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations`, { headers: { Authorization: `Bearer ${first.token}` } });
+    expect(conversationsResponse.ok).toBe(true);
+    const conversations = await conversationsResponse.json() as Array<{ peer: { id: number }; pinned: boolean }>;
+    const existingConversation = conversations.find((item) => item.peer.id === second.user.id);
+    expect(existingConversation).toBeDefined();
+    const pinnedResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations/${second.user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ pinned: !existingConversation!.pinned }) });
+    expect(pinnedResponse.ok).toBe(true);
+    expect((await pinnedResponse.json() as { pinned: boolean }).pinned).toBe(!existingConversation!.pinned);
+    await fetch(`${apiUrl!.replace(/\/$/, "")}/api/conversations/${second.user.id}`, { method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${first.token}` }, body: JSON.stringify({ pinned: existingConversation!.pinned }) });
+    const searchResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/search?q=feedback-`, { headers: { Authorization: `Bearer ${second.token}` } });
+    expect(searchResponse.ok).toBe(true);
+    expect((await searchResponse.json() as Array<{ id: number }>).some((item) => item.id === message.id)).toBe(true);
+
     const unreadResponse = await fetch(`${apiUrl!.replace(/\/$/, "")}/api/messages/unread-counts`, { headers: { Authorization: `Bearer ${second.token}` } });
     expect(unreadResponse.ok).toBe(true);
     const unreadCounts = await unreadResponse.json() as Array<{ senderId: number; count: number }>;

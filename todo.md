@@ -52,3 +52,6 @@
 - [x] Bổ sung bộ lọc chỉ hiển thị các cuộc trò chuyện có tin chưa đọc.
 - [x] Thêm thao tác đánh dấu tất cả tin nhắn là đã đọc.
 - [x] Hiển thị giờ và phút cụ thể cạnh trạng thái đã xem của tin nhắn.
+- [x] Sắp xếp hội thoại theo tin mới nhất và cho phép ghim hội thoại quan trọng.
+- [x] Tìm kiếm nội dung tin nhắn trong các cuộc trò chuyện.
+- [x] Thêm thao tác nhanh lưu trữ, xóa và tắt thông báo cho hội thoại.

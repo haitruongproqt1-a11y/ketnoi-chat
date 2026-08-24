@@ -12,6 +12,8 @@ export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
 export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null };
+export type ConversationSummary = { peer: MobileUser; lastMessage: MobileMessage | null; unreadCount: number; pinned: boolean; archived: boolean; muted: boolean };
+export type MessageSearchResult = MobileMessage & { peer: MobileUser };
 export type IceConfig = { iceServers: Array<{ urls: string[]; username?: string; credential?: string }> };
 export type FriendRelationship = "friends" | "incoming" | "outgoing" | "none";
 export type UserSearchResult = MobileUser & { relationship: FriendRelationship };
@@ -32,6 +34,8 @@ export const mobileApi = {
   login: (username: string, password: string) => request<AuthPayload>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
   register: (username: string, displayName: string, password: string, email?: string) => request<AuthPayload>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, displayName, password, email }) }),
   friends: (token: string) => request<MobileUser[]>("/api/friends", {}, token),
+  conversations: (token: string) => request<ConversationSummary[]>("/api/conversations", {}, token),
+  updateConversation: (token: string, peerId: number, changes: Partial<{ pinned: boolean; archived: boolean; muted: boolean; hidden: boolean }>) => request<ConversationSummary>(`/api/conversations/${peerId}`, { method: "PATCH", body: JSON.stringify(changes) }, token),
   searchUsers: (token: string, query: string) => request<UserSearchResult[]>(`/api/users/search?q=${encodeURIComponent(query)}`, {}, token),
   friendRequests: (token: string, direction: "incoming" | "outgoing" = "incoming") => request<FriendRequest[]>(`/api/friend-requests?direction=${direction}`, {}, token),
   sendFriendRequest: (token: string, recipientId: number) => request<FriendRequest>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId }) }, token),
@@ -40,6 +44,7 @@ export const mobileApi = {
   markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
   markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),
+  searchMessages: (token: string, query: string) => request<MessageSearchResult[]>(`/api/messages/search?q=${encodeURIComponent(query)}`, {}, token),
   readReceiptPreference: (token: string) => request<{ readReceiptsEnabled: boolean }>("/api/preferences", {}, token),
   setReadReceiptPreference: (token: string, enabled: boolean) => request<{ readReceiptsEnabled: boolean }>("/api/preferences/read-receipts", { method: "PUT", body: JSON.stringify({ enabled }) }, token),
   callHistory: (token: string) => request<CallHistoryEntry[]>("/api/calls", {}, token),
