@@ -29,3 +29,6 @@
 - [x] Khôi phục và xác minh Metro/Expo web preview tại cổng 8081 cho người dùng xem giao diện.
 - [x] Khắc phục API đăng ký/đăng nhập cho preview web qua backend và proxy nội bộ.
 - [x] Tạo tài khoản mẫu và kiểm thử end-to-end đăng ký/đăng nhập trên preview web.
+- [x] Tách notification bridge web/native để preview không gọi API push native không hỗ trợ.
+- [x] Hoàn thiện và xác minh các luồng chat, kết bạn, presence, call history và signaling P2P trong bản preview.
+- [x] Bổ sung màn hình gọi web mô phỏng với điều khiển mic, camera và chia sẻ màn hình để kiểm thử giao diện.
