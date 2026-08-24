@@ -41,3 +41,5 @@
 - [x] Tối giản gọi thoại chỉ có avatar, tên người gọi và thời lượng sau xác nhận kết nối.
 - [x] Bổ sung chuyển camera trước/sau trong gọi video native.
 - [x] Bổ sung chia sẻ màn hình trong gọi video cùng trạng thái signaling rõ ràng.
+- [x] Khắc phục kết nối backend cho luồng đăng ký, đăng nhập và Socket.io trên preview/mobile.
+- [x] Xác minh lại đăng ký, đăng nhập và trạng thái kết nối bằng endpoint backend đang hoạt động.
