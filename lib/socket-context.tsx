@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
-import { SOCKET_URL, type MobileMessage } from "./mobile-api";
+import { SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
 
 type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup";
@@ -18,7 +18,7 @@ type SocketContextValue = {
   lastDeliveryReceipt: ChatDeliveryReceipt | null;
   incomingOffer: CallSignal | null;
   latestSignal: { event: SignalEvent; payload: CallSignal } | null;
-  sendMessage: (recipientId: number, body: string) => Promise<MobileMessage>;
+  sendMessage: (recipientId: number, body: string, media?: ChatMedia) => Promise<MobileMessage>;
   sendTyping: (recipientId: number, isTyping: boolean) => void;
   sendSignal: (event: SignalEvent, payload: CallSignal) => void;
   clearSignal: () => void;
@@ -67,10 +67,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     lastDeliveryReceipt,
     incomingOffer,
     latestSignal,
-    sendMessage: (recipientId, body) => new Promise<MobileMessage>((resolve, reject) => {
+    sendMessage: (recipientId, body, media) => new Promise<MobileMessage>((resolve, reject) => {
       const instance = socketRef.current;
       if (!instance) { reject(new Error("Socket chưa sẵn sàng")); return; }
-      instance.emit("chat:send", { recipientId, body }, (reply: { ok: boolean; message?: MobileMessage; error?: string }) => {
+      instance.emit("chat:send", { recipientId, body, media }, (reply: { ok: boolean; message?: MobileMessage; error?: string }) => {
         if (reply.ok && reply.message) resolve(reply.message);
         else reject(new Error(reply.error ?? "Không gửi được tin nhắn"));
       });

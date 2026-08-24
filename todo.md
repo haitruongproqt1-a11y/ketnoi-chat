@@ -58,3 +58,5 @@
 - [x] Tô sáng từ khóa và lọc kết quả tìm kiếm theo ngày hoặc người gửi.
 - [x] Cho phép chọn nhiều hội thoại và thực hiện thao tác hàng loạt.
 - [x] Tạo mục đã lưu trữ và cho phép khôi phục hội thoại về danh sách chính.
+- [x] Bổ sung chọn và tải ảnh/video từ thiết bị trong chat riêng.
+- [x] Lưu trữ, đồng bộ và hiển thị ảnh/video trong luồng tin nhắn realtime.

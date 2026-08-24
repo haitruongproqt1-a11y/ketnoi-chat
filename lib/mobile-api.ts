@@ -11,7 +11,8 @@ export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
-export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null };
+export type ChatMedia = { url: string; kind: "image" | "video"; name: string; mimeType: string; size: number };
+export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null; media: ChatMedia | null };
 export type ConversationSummary = { peer: MobileUser; lastMessage: MobileMessage | null; unreadCount: number; pinned: boolean; archived: boolean; muted: boolean };
 export type MessageSearchResult = MobileMessage & ConversationSummary;
 export type IceConfig = { iceServers: Array<{ urls: string[]; username?: string; credential?: string }> };
@@ -44,6 +45,16 @@ export const mobileApi = {
   markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
   markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),
+  mediaUrl: (path: string) => path.startsWith("http") ? path : `${API_URL}${path}`,
+  uploadMedia: async (token: string, asset: { uri: string; name: string; mimeType: string; size: number }) => {
+    const form = new FormData();
+    const file = Platform.OS === "web" ? await fetch(asset.uri).then((response) => response.blob()) : { uri: asset.uri, name: asset.name, type: asset.mimeType } as unknown as Blob;
+    form.append("file", file, asset.name);
+    const response = await fetch(`${API_URL}/api/media`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: form });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(body.message ?? body.error ?? "Không thể tải tệp lên máy chủ");
+    return body as ChatMedia;
+  },
   searchMessages: (token: string, query: string) => request<MessageSearchResult[]>(`/api/messages/search?q=${encodeURIComponent(query)}`, {}, token),
   readReceiptPreference: (token: string) => request<{ readReceiptsEnabled: boolean }>("/api/preferences", {}, token),
   setReadReceiptPreference: (token: string, enabled: boolean) => request<{ readReceiptsEnabled: boolean }>("/api/preferences/read-receipts", { method: "PUT", body: JSON.stringify({ enabled }) }, token),
