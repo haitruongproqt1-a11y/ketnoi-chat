@@ -102,4 +102,4 @@
 - [x] Soạn hướng dẫn build APK thủ công bằng Expo/EAS CLI trên máy cá nhân.
 - [x] Kiểm tra khả năng liên kết GitHub và chuẩn bị phương án build APK ngoài sandbox.
 - [x] Khắc phục truy cập GitHub repository và cấu hình GitHub Actions tự động tạo APK khi push nhánh main.
-- [ ] Xác minh APK tự động và tạo GitHub Release đính kèm tệp APK cho phiên bản hiện tại.
+- [x] Xác minh APK tự động và tạo GitHub Release đính kèm tệp APK cho phiên bản hiện tại.
