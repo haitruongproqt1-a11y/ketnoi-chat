@@ -109,3 +109,6 @@
 - [x] Tạo GitHub Release mới và đính kèm APK release đã ký để tải trực tiếp từ Assets.
 - [x] Điều tra lỗi APK release Android cài đặt được nhưng không mở ứng dụng và phát hành lại bản đã xác minh.
 - [ ] Lập bản đồ, thay thế và kiểm thử tuần tự gọi thoại WebRTC, gọi video WebRTC và chia sẻ màn hình Android mà không làm ảnh hưởng chat, xác thực, danh bạ, tin nhắn, database và notification.
+- [ ] Điều tra và sửa crash Android ngay khi khởi động ứng dụng Kết Nối; phát hành APK signed mới chỉ sau khi có bằng chứng native phù hợp.
+- [ ] Phân biệt và loại trừ lỗi tệp APK bị ứng dụng khác chiếm dụng trên giả lập trước khi dùng kết quả cài đặt để đánh giá lỗi native.
+- [ ] Khắc phục crash khởi động đã được xác nhận lặp lại trên điện thoại MIUI/Android, không suy diễn từ bản chạy trên giả lập.
