@@ -107,4 +107,4 @@
 - [x] Tạo keystore Android release mới và lưu bốn GitHub Actions Secrets bằng quyền Actions secrets: Read and write
 - [x] Thêm job ký APK release bằng GitHub Actions và chạy build thử nghiệm để xác minh artifact.
 - [x] Tạo GitHub Release mới và đính kèm APK release đã ký để tải trực tiếp từ Assets.
-- [ ] Điều tra lỗi APK release Android cài đặt được nhưng không mở ứng dụng và phát hành lại bản đã xác minh.
+- [x] Điều tra lỗi APK release Android cài đặt được nhưng không mở ứng dụng và phát hành lại bản đã xác minh.
