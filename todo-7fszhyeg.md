@@ -46,3 +46,7 @@
 - [x] Bổ sung API lấy câu hỏi bí mật và đặt lại mật khẩu bằng tên đăng nhập.
 - [x] Thêm luồng Quên mật khẩu bằng câu hỏi bí mật trên màn hình xác thực.
 - [x] Kiểm thử đăng ký, đăng nhập và đặt lại mật khẩu bằng câu hỏi bí mật.
+- [x] Rà soát và mở rộng danh sách câu hỏi bí mật để người dùng lựa chọn.
+- [x] Đổi danh sách câu hỏi bí mật thành một ô chọn thả xuống có mũi tên.
+- [x] Thêm lưu ý người dùng cần ghi nhớ câu hỏi/câu trả lời để khôi phục mật khẩu.
+- [x] Kiểm thử hồi quy đăng ký và khôi phục mật khẩu sau thay đổi giao diện.

@@ -13,7 +13,7 @@ describe("authentication retry safeguards", () => {
   });
 
   it("normalizes Vietnamese secret answers without weakening the selected question", () => {
-    expect(SECRET_QUESTIONS).toHaveLength(3);
+    expect(SECRET_QUESTIONS.length).toBeGreaterThanOrEqual(8);
     expect(normalizeSecretAnswer("  Bánh   Mì  ")).toBe("banh mi");
   });
 });

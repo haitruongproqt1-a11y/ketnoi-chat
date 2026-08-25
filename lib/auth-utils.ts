@@ -4,6 +4,12 @@ export const SECRET_QUESTIONS = [
   { id: "favorite_color", label: "Bạn thích màu gì?" },
   { id: "favorite_food", label: "Bạn thích món nào nhất?" },
   { id: "primary_school", label: "Trường tiểu học của bạn tên là gì?" },
+  { id: "birthplace", label: "Bạn sinh ra ở tỉnh hoặc thành phố nào?" },
+  { id: "first_pet", label: "Tên thú cưng đầu tiên của bạn là gì?" },
+  { id: "childhood_friend", label: "Tên người bạn thời thơ ấu của bạn là gì?" },
+  { id: "favorite_teacher", label: "Tên giáo viên bạn nhớ nhất là gì?" },
+  { id: "favorite_book", label: "Cuốn sách bạn yêu thích là gì?" },
+  { id: "dream_job", label: "Công việc mơ ước của bạn là gì?" },
 ] as const;
 
 export type SecretQuestionId = (typeof SECRET_QUESTIONS)[number]["id"];
