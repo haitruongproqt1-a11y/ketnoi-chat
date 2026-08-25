@@ -69,7 +69,6 @@ jobs:
     timeout-minutes: 55
     env:
       CI: true
-      KETNOI_RELEASE_STORE_FILE: ${{ runner.temp }}/ketnoi-release.p12
       KETNOI_RELEASE_STORE_PASSWORD: ${{ secrets.KETNOI_RELEASE_STORE_PASSWORD }}
       KETNOI_RELEASE_KEY_ALIAS: ${{ secrets.KETNOI_RELEASE_KEY_ALIAS }}
       KETNOI_RELEASE_KEY_PASSWORD: ${{ secrets.KETNOI_RELEASE_KEY_PASSWORD }}
@@ -108,8 +107,10 @@ jobs:
           set -euo pipefail
           test -n "$KETNOI_RELEASE_KEYSTORE_B64"
           umask 077
-          printf '%s' "$KETNOI_RELEASE_KEYSTORE_B64" | base64 --decode > "$KETNOI_RELEASE_STORE_FILE"
-          test -s "$KETNOI_RELEASE_STORE_FILE"
+          KEYSTORE_PATH="$RUNNER_TEMP/ketnoi-release.p12"
+          printf '%s' "$KETNOI_RELEASE_KEYSTORE_B64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
+          printf 'KETNOI_RELEASE_STORE_FILE=%s\n' "$KEYSTORE_PATH" >> "$GITHUB_ENV"
 
       - name: Generate native Android project
         run: pnpm exec expo prebuild --platform android --non-interactive --no-install
