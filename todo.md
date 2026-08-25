@@ -108,3 +108,4 @@
 - [x] Thêm job ký APK release bằng GitHub Actions và chạy build thử nghiệm để xác minh artifact.
 - [x] Tạo GitHub Release mới và đính kèm APK release đã ký để tải trực tiếp từ Assets.
 - [x] Điều tra lỗi APK release Android cài đặt được nhưng không mở ứng dụng và phát hành lại bản đã xác minh.
+- [ ] Lập bản đồ, thay thế và kiểm thử tuần tự gọi thoại WebRTC, gọi video WebRTC và chia sẻ màn hình Android mà không làm ảnh hưởng chat, xác thực, danh bạ, tin nhắn, database và notification.
