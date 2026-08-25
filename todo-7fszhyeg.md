@@ -20,3 +20,7 @@
 - [x] Rà soát luồng WebRTC, TURN/ICE, signaling và chia sẻ màn hình.
 - [x] Chạy kiểm tra cấu hình prebuild, kiểu dữ liệu và kiểm thử hồi quy liên quan.
 - [x] Sửa mọi lỗi phát hiện được và xác nhận trạng thái build-ready.
+- [x] Thu thập và phân tích nguyên nhân crash khi khởi chạy APK Android.
+- [x] Rà soát CallKeep, quyền Telecom và khởi tạo native để loại bỏ lỗi startup.
+- [x] Bổ sung lớp bảo vệ khởi tạo native và kiểm thử hồi quy khởi động.
+- [x] Xác minh bản sửa và hướng dẫn cài lại APK sạch.

@@ -15,21 +15,26 @@ export function CallKeepBridge() {
 
   useEffect(() => {
     if (!token || Platform.OS === "web") return;
-    void initializeCallKeep().catch(() => undefined);
-    const answer = RNCallKeep.addEventListener("answerCall", ({ callUUID }) => {
-      const call = getSystemCall(callUUID);
-      if (!call) return;
-      router.push({ pathname: "/call", params: { peerId: String(call.peerId), peerName: call.peerName, direction: "incoming", mode: call.withVideo ? "video" : "audio", callId: call.callId, autoAnswer: "1" } });
-    });
-    const end = RNCallKeep.addEventListener("endCall", ({ callUUID }) => {
-      const call = getSystemCall(callUUID);
-      if (!call) return;
-      sendSignal("call:hangup", { toUserId: call.peerId, callId: call.callId, reason: "declined" });
-      void mobileApi.declineCall(token, call.callId).catch(() => undefined);
-      clearSystemCall(callUUID);
-      clearIncomingOffer();
-    });
-    return () => { answer.remove(); end.remove(); };
+    let disposed = false;
+    let answer: { remove: () => void } | undefined;
+    let end: { remove: () => void } | undefined;
+    void initializeCallKeep().then((ready) => {
+      if (!ready || disposed) return;
+      answer = RNCallKeep.addEventListener("answerCall", ({ callUUID }) => {
+        const call = getSystemCall(callUUID);
+        if (!call) return;
+        router.push({ pathname: "/call", params: { peerId: String(call.peerId), peerName: call.peerName, direction: "incoming", mode: call.withVideo ? "video" : "audio", callId: call.callId, autoAnswer: "1" } });
+      });
+      end = RNCallKeep.addEventListener("endCall", ({ callUUID }) => {
+        const call = getSystemCall(callUUID);
+        if (!call) return;
+        sendSignal("call:hangup", { toUserId: call.peerId, callId: call.callId, reason: "declined" });
+        void mobileApi.declineCall(token, call.callId).catch(() => undefined);
+        clearSystemCall(callUUID);
+        clearIncomingOffer();
+      });
+    }).catch(() => undefined);
+    return () => { disposed = true; answer?.remove(); end?.remove(); };
   }, [clearIncomingOffer, router, sendSignal, token]);
 
   useEffect(() => {
