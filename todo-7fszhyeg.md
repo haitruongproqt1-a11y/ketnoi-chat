@@ -66,3 +66,8 @@
 - [x] Khoanh vùng lỗi Invalid time value khi render tin nhắn mới.
 - [x] Chuẩn hóa và bọc an toàn định dạng thời gian của tin nhắn.
 - [x] Kiểm thử gửi và hiển thị tin nhắn sau bản vá thời gian.
+- [x] Lập danh mục kiểm tra các tính năng hiện có, không thêm lại chức năng đã có.
+- [x] Kiểm tra xác thực, bạn bè, chat, media và trạng thái dữ liệu.
+- [x] Kiểm tra WebRTC, chia sẻ màn hình, TURN và thông báo/cuộc gọi đến.
+- [x] Khắc phục riêng các lỗi được kiểm thử xác minh.
+- [x] Xác minh cấu hình Android và lưu phiên bản ổn định để tạo APK Development Build.
