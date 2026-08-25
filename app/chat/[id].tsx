@@ -280,11 +280,21 @@ export default function ChatScreen() {
   </KeyboardAvoidingView></ScreenContainer>;
 }
 
+function formatMessageTime(value: string | null | undefined) {
+  const date = value ? new Date(value) : null;
+  return date && !Number.isNaN(date.getTime()) ? new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(date) : "--:--";
+}
+
+function isWithinRecallWindow(value: string | null | undefined) {
+  const timestamp = value ? new Date(value).getTime() : Number.NaN;
+  return !Number.isNaN(timestamp) && Date.now() - timestamp <= 15 * 60 * 1000;
+}
+
 function MessageBubble({ message, isMine, onDownload, onRevoke, onForward, onReply, onOpenImage, onOpenActions }: { message: MobileMessage; isMine: boolean; onDownload: () => void; onRevoke: () => void; onForward: () => void; onReply: () => void; onOpenImage: (media: NonNullable<MobileMessage["media"]>) => void; onOpenActions: () => void }) {
-  const label = new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(`${message.createdAt}Z`));
+  const label = formatMessageTime(message.createdAt);
   const readTime = message.readAt ? new Intl.DateTimeFormat("vi-VN", { hour: "2-digit", minute: "2-digit" }).format(new Date(message.readAt)) : null;
   const deliveryStatus = readTime ? `Đã xem · ${readTime}` : message.deliveredAt ? "Đã nhận" : "Đã gửi";
-  const canRecall = isMine && Date.now() - new Date(`${message.createdAt}Z`).getTime() <= 15 * 60 * 1000;
+  const canRecall = isMine && isWithinRecallWindow(message.createdAt);
   const panResponder = useRef(PanResponder.create({ onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dx) > 14 && Math.abs(gesture.dx) > Math.abs(gesture.dy), onPanResponderRelease: (_event, gesture) => { if (Math.abs(gesture.dx) >= 54) { onReply(); if (Platform.OS !== "web") void Haptics.selectionAsync(); } } })).current;
   if (message.callEvent) { const callText = message.callEvent.status === "missed" ? "Cuộc gọi nhỡ" : message.callEvent.status === "declined" ? "Cuộc gọi bị từ chối" : isMine ? "Cuộc gọi đã được nhận" : "Cuộc gọi đã nghe"; const duration = message.callEvent.durationSeconds ? ` · ${formatCallDuration(message.callEvent.durationSeconds)} · ${Math.max(1, Math.ceil(message.callEvent.durationSeconds / 60))} phút` : ""; return <View style={[styles.messageRow, isMine && styles.mineRow]}><View style={mediaStyles.callEvent}><Text style={mediaStyles.callIcon}>{message.callEvent.kind === "video" ? "▣" : "⌕"}</Text><View><Text style={mediaStyles.callTitle}>{callText}</Text><Text style={mediaStyles.callDetail}>{message.callEvent.kind === "video" ? "Gọi video" : "Gọi thoại"} · {label}{duration}</Text></View></View></View>; }
   const mediaItems = message.mediaItems?.length ? message.mediaItems : message.media ? [message.media] : [];

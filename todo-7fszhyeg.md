@@ -63,3 +63,6 @@
 - [x] Thêm âm thanh/rung nhẹ khi nhận tin nhắn hoặc lời mời kết bạn.
 - [x] Thêm xóa tin nhắn, thu hồi tin nhắn và làm mới hội thoại không giữ lịch sử cũ.
 - [x] Kiểm thử hồi quy media, thông báo và quản lý lịch sử chat.
+- [x] Khoanh vùng lỗi Invalid time value khi render tin nhắn mới.
+- [x] Chuẩn hóa và bọc an toàn định dạng thời gian của tin nhắn.
+- [x] Kiểm thử gửi và hiển thị tin nhắn sau bản vá thời gian.
