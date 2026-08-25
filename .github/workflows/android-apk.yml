@@ -101,8 +101,12 @@ jobs:
           test -n "$ARTIFACT_RUN_ID"
           test -n "$ARTIFACT_NAME"
           if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $RELEASE_TAG already exists." >&2
-            exit 1
+            IS_DRAFT="$(gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [ "$IS_DRAFT" != "true" ]; then
+              echo "Release $RELEASE_TAG already exists and is public." >&2
+              exit 1
+            fi
+            echo "Continuing with existing draft release $RELEASE_TAG."
           fi
 
       - name: Download signed APK artifact
@@ -118,11 +122,18 @@ jobs:
       - name: Create GitHub Release with APK asset
         run: |
           set -euo pipefail
-          gh release create "$RELEASE_TAG" release-artifact/app-release.apk \
-            --repo "$GITHUB_REPOSITORY" \
-            --target "$GITHUB_SHA" \
-            --title "Kết Nối ${RELEASE_TAG} — APK release đã ký" \
-            --notes "APK Android release đã ký và xác minh từ GitHub Actions run ${ARTIFACT_RUN_ID}."
+          TITLE="Kết Nối ${RELEASE_TAG} — APK release đã ký"
+          NOTES="APK Android release đã ký và xác minh từ GitHub Actions run ${ARTIFACT_RUN_ID}."
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" release-artifact/app-release.apk --repo "$GITHUB_REPOSITORY" --clobber
+            gh release edit "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" --draft=false --title "$TITLE" --notes "$NOTES"
+          else
+            gh release create "$RELEASE_TAG" release-artifact/app-release.apk \
+              --repo "$GITHUB_REPOSITORY" \
+              --target "$GITHUB_SHA" \
+              --title "$TITLE" \
+              --notes "$NOTES"
+          fi
 
   build-signed-release-apk:
     name: Build signed Android release APK
