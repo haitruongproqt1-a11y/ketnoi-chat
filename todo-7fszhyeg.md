@@ -50,3 +50,6 @@
 - [x] Đổi danh sách câu hỏi bí mật thành một ô chọn thả xuống có mũi tên.
 - [x] Thêm lưu ý người dùng cần ghi nhớ câu hỏi/câu trả lời để khôi phục mật khẩu.
 - [x] Kiểm thử hồi quy đăng ký và khôi phục mật khẩu sau thay đổi giao diện.
+- [x] Bỏ thông báo lỗi đỏ ở danh sách trò chuyện trống khi chưa có bạn bè/cuộc trò chuyện.
+- [x] Làm rõ điểm vào tìm người dùng và kết bạn trong Danh bạ.
+- [x] Kiểm thử hồi quy danh sách trống, tìm người dùng và gửi lời mời kết bạn.
