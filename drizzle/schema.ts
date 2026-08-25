@@ -58,6 +58,36 @@ export const friendRequests = mysqlTable("friend_requests", {
   index("friend_requests_sender_status_index").on(table.senderId, table.status),
 ]);
 
+export const mobileMessages = mysqlTable("mobile_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  senderId: int("sender_id").notNull(),
+  recipientId: int("recipient_id").notNull(),
+  body: text("body").notNull(),
+  mediaPayload: text("media_payload"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  deliveredAt: timestamp("delivered_at"),
+  readAt: timestamp("read_at"),
+  mediaRevokedAt: timestamp("media_revoked_at"),
+}, (table) => [
+  index("mobile_messages_sender_created_index").on(table.senderId, table.createdAt),
+  index("mobile_messages_recipient_created_index").on(table.recipientId, table.createdAt),
+  index("mobile_messages_recipient_read_index").on(table.recipientId, table.readAt),
+]);
+
+export const mobileConversationPreferences = mysqlTable("mobile_conversation_preferences", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("user_id").notNull(),
+  peerId: int("peer_id").notNull(),
+  pinned: int("pinned").default(0).notNull(),
+  archived: int("archived").default(0).notNull(),
+  muted: int("muted").default(0).notNull(),
+  hidden: int("hidden").default(0).notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
+}, (table) => [
+  uniqueIndex("mobile_conversation_preferences_user_peer_unique").on(table.userId, table.peerId),
+  index("mobile_conversation_preferences_user_updated_index").on(table.userId, table.updatedAt),
+]);
+
 export const callRecords = mysqlTable("call_records", {
   id: varchar("id", { length: 96 }).primaryKey(),
   callerId: int("caller_id").notNull(),
@@ -89,5 +119,6 @@ export const mobilePushTokens = mysqlTable("mobile_push_tokens", {
 
 export type MobileUserRecord = typeof mobileUsers.$inferSelect;
 export type FriendRequestRecord = typeof friendRequests.$inferSelect;
+export type MobileMessageRecord = typeof mobileMessages.$inferSelect;
 export type CallRecord = typeof callRecords.$inferSelect;
 export type MobilePushTokenRecord = typeof mobilePushTokens.$inferSelect;

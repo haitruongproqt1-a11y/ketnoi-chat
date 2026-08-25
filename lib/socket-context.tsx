@@ -1,7 +1,7 @@
-import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { io, type Socket } from "socket.io-client";
 
-import { SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
+import { mobileApi, SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
 import { playIncomingMessageTone } from "./sound-feedback";
 
@@ -19,6 +19,8 @@ type SocketContextValue = {
   lastReadReceipt: ChatReadReceipt | null;
   lastDeliveryReceipt: ChatDeliveryReceipt | null;
   lastMediaRecall: ChatMediaRecall | null;
+  pendingFriendRequestCount: number;
+  refreshPendingFriendRequestCount: () => Promise<void>;
   incomingOffer: CallSignal | null;
   latestSignal: { event: SignalEvent; payload: CallSignal } | null;
   sendMessage: (recipientId: number, body: string, media?: ChatMedia, mediaItems?: ChatMedia[]) => Promise<MobileMessage>;
@@ -40,11 +42,23 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [lastReadReceipt, setLastReadReceipt] = useState<ChatReadReceipt | null>(null);
   const [lastDeliveryReceipt, setLastDeliveryReceipt] = useState<ChatDeliveryReceipt | null>(null);
   const [lastMediaRecall, setLastMediaRecall] = useState<ChatMediaRecall | null>(null);
+  const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
   const [incomingOffer, setIncomingOffer] = useState<CallSignal | null>(null);
   const [latestSignal, setLatestSignal] = useState<SocketContextValue["latestSignal"]>(null);
 
+  const refreshPendingFriendRequestCount = useCallback(async () => {
+    if (!token) { setPendingFriendRequestCount(0); return; }
+    try {
+      const requests = await mobileApi.friendRequests(token);
+      setPendingFriendRequestCount(requests.filter((request) => request.status === "pending").length);
+    } catch {
+      setPendingFriendRequestCount(0);
+    }
+  }, [token]);
+
   useEffect(() => {
-    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); return; }
+    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); setPendingFriendRequestCount(0); return; }
+    void refreshPendingFriendRequestCount();
     const instance = io(SOCKET_URL, { auth: { token }, transports: ["websocket", "polling"] });
     socketRef.current = instance;
     setSocket(instance);
@@ -55,13 +69,14 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     instance.on("chat:delivered", (payload: ChatDeliveryReceipt) => setLastDeliveryReceipt(payload));
     instance.on("chat:media-recalled", (payload: ChatMediaRecall) => setLastMediaRecall(payload));
+    instance.on("friend:request", () => setPendingFriendRequestCount((count) => count + 1));
     const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup", "call:screen-share", "call:error"];
     signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
       if (event === "call:offer") setIncomingOffer(payload);
       setLatestSignal({ event, payload });
     }));
     return () => { instance.disconnect(); if (socketRef.current === instance) socketRef.current = null; };
-  }, [token, user?.id]);
+  }, [refreshPendingFriendRequestCount, token, user?.id]);
 
   const value = useMemo<SocketContextValue>(() => ({
     socket,
@@ -71,12 +86,28 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     lastReadReceipt,
     lastDeliveryReceipt,
     lastMediaRecall,
+    pendingFriendRequestCount,
+    refreshPendingFriendRequestCount,
     incomingOffer,
     latestSignal,
     sendMessage: (recipientId, body, media, mediaItems) => new Promise<MobileMessage>((resolve, reject) => {
       const instance = socketRef.current;
-      if (!instance) { reject(new Error("Socket chưa sẵn sàng")); return; }
+      if (!instance?.connected) {
+        if (!token) { reject(new Error("Phiên đăng nhập đã hết hạn.")); return; }
+        void mobileApi.sendMessage(token, recipientId, body, media, mediaItems).then(resolve, reject);
+        return;
+      }
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        if (!token) reject(new Error("Kết nối gửi tin nhắn đã hết hạn."));
+        else void mobileApi.sendMessage(token, recipientId, body, media, mediaItems).then(resolve, reject);
+      }, 8000);
       instance.emit("chat:send", { recipientId, body, media, mediaItems }, (reply: { ok: boolean; message?: MobileMessage; error?: string }) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
         if (reply.ok && reply.message) resolve(reply.message);
         else reject(new Error(reply.error ?? "Không gửi được tin nhắn"));
       });
@@ -85,7 +116,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     sendSignal: (event, payload) => socketRef.current?.emit(event, payload),
     clearSignal: () => setLatestSignal(null),
     clearIncomingOffer: () => setIncomingOffer(null),
-  }), [incomingOffer, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, socket]);
+  }), [incomingOffer, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, pendingFriendRequestCount, refreshPendingFriendRequestCount, socket, token]);
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 

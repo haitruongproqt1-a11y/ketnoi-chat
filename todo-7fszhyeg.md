@@ -53,3 +53,8 @@
 - [x] Bỏ thông báo lỗi đỏ ở danh sách trò chuyện trống khi chưa có bạn bè/cuộc trò chuyện.
 - [x] Làm rõ điểm vào tìm người dùng và kết bạn trong Danh bạ.
 - [x] Kiểm thử hồi quy danh sách trống, tìm người dùng và gửi lời mời kết bạn.
+- [x] Thêm phản hồi loading khi tìm người dùng để kết bạn trong Danh bạ.
+- [x] Thêm chấm đỏ thông báo ở biểu tượng Danh bạ khi có lời mời kết bạn mới.
+- [x] Khoanh vùng và sửa lỗi gửi/hiển thị nội dung tin nhắn trong đoạn chat.
+- [x] Khoanh vùng và sửa lỗi tải lên/gửi ảnh và tệp trong chat.
+- [x] Kiểm thử hồi quy chat, media, tìm người dùng và lời mời kết bạn.

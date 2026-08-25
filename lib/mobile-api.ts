@@ -52,6 +52,7 @@ export const mobileApi = {
   sendFriendRequest: (token: string, recipientId: number) => request<FriendRequest>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId }) }, token),
   respondFriendRequest: (token: string, requestId: number, accept: boolean) => request<FriendRequest>(`/api/friend-requests/${requestId}/respond`, { method: "POST", body: JSON.stringify({ accept }) }, token),
   messages: (token: string, peerId: number) => request<MobileMessage[]>(`/api/messages/${peerId}`, {}, token),
+  sendMessage: (token: string, peerId: number, body: string, media?: ChatMedia, mediaItems?: ChatMedia[]) => request<MobileMessage>(`/api/messages/${peerId}`, { method: "POST", body: JSON.stringify({ body, media, mediaItems }) }, token),
   markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
   markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),

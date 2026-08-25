@@ -5,20 +5,25 @@ import { promisify } from "node:util";
 import { and, asc, desc, eq, inArray, like, or } from "drizzle-orm";
 import type { Express, Request, Response } from "express";
 import { SignJWT, jwtVerify } from "jose";
+import multer from "multer";
 import { Server as SocketServer, type Socket } from "socket.io";
 
 import {
   callRecords,
   friendRequests,
+  mobileConversationPreferences,
+  mobileMessages,
   mobilePushTokens,
   mobileUsers,
   type CallRecord,
   type FriendRequestRecord,
+  type MobileMessageRecord,
   type MobileUserRecord,
 } from "../drizzle/schema";
 import { isSecretQuestionId, normalizeSecretAnswer, SECRET_QUESTIONS } from "../lib/auth-utils";
 import { getDb } from "./db";
 import { ENV } from "./_core/env";
+import { storagePut } from "./storage";
 
 const scrypt = promisify(scryptCallback);
 const GOOGLE_STUN = "stun:stun.l.google.com:19302";
@@ -29,6 +34,8 @@ const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 type MobileSession = { userId: number; username: string };
 type CallKind = "audio" | "video";
 type CallReason = "ended" | "missed" | "declined";
+type ChatMedia = { url: string; kind: "image" | "video" | "file"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
+type ChatMediaPayload = { media: ChatMedia | null; mediaItems: ChatMedia[] };
 type CallSignalPayload = {
   toUserId?: number;
   callId?: string;
@@ -65,6 +72,40 @@ function toCallHistory(record: CallRecord, currentUserId: number, peer: MobileUs
     endedAt: toIso(record.endedAt),
     durationSeconds: record.durationSeconds,
   };
+}
+
+function emptyMediaPayload(): ChatMediaPayload {
+  return { media: null, mediaItems: [] };
+}
+
+function isChatMedia(value: unknown): value is ChatMedia {
+  if (!value || typeof value !== "object") return false;
+  const media = value as Partial<ChatMedia>;
+  return typeof media.url === "string" && media.url.startsWith("/manus-storage/") && (media.kind === "image" || media.kind === "video" || media.kind === "file") && typeof media.name === "string" && typeof media.mimeType === "string" && typeof media.size === "number";
+}
+
+function parseMediaPayload(value: string | null): ChatMediaPayload {
+  if (!value) return emptyMediaPayload();
+  try {
+    const parsed = JSON.parse(value) as Partial<ChatMediaPayload>;
+    const items = Array.isArray(parsed.mediaItems) ? parsed.mediaItems.filter(isChatMedia) : [];
+    const media = isChatMedia(parsed.media) ? parsed.media : items[0] ?? null;
+    return { media, mediaItems: items };
+  } catch {
+    return emptyMediaPayload();
+  }
+}
+
+function normalizeChatMedia(value: unknown): ChatMedia | null {
+  if (!isChatMedia(value)) return null;
+  const media = value as ChatMedia;
+  if (media.size < 0 || media.size > 12 * 1024 * 1024 || media.name.length > 255 || media.mimeType.length > 160) return null;
+  return { ...media, name: safeText(media.name, 255), mimeType: safeText(media.mimeType, 160), thumbnailUrl: typeof media.thumbnailUrl === "string" && media.thumbnailUrl.startsWith("/manus-storage/") ? media.thumbnailUrl : null, caption: safeText(media.caption, 1000) || null };
+}
+
+function toMobileMessage(record: MobileMessageRecord) {
+  const payload = record.mediaRevokedAt ? emptyMediaPayload() : parseMediaPayload(record.mediaPayload);
+  return { id: record.id, senderId: record.senderId, recipientId: record.recipientId, body: record.body, createdAt: record.createdAt.toISOString(), deliveredAt: toIso(record.deliveredAt), readAt: toIso(record.readAt), media: payload.media, mediaItems: payload.mediaItems, mediaRevokedAt: toIso(record.mediaRevokedAt) };
 }
 
 function getSessionKey() {
@@ -312,6 +353,31 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     cors: { origin: true, credentials: true, methods: ["GET", "POST"] },
   });
   const onlineSockets = new Map<number, Set<string>>();
+  const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 12 * 1024 * 1024, files: 1 } });
+
+  const saveChatMessage = async (senderId: number, recipientId: number, input: { body?: unknown; media?: unknown; mediaItems?: unknown }) => {
+    if (senderId === recipientId) throw new Error("Không thể gửi tin nhắn cho chính bạn.");
+    if (await relationshipBetween(senderId, recipientId) !== "friends") throw new Error("Bạn chỉ có thể nhắn tin cho bạn bè đã xác nhận.");
+    const body = safeText(input.body, 4000);
+    const mediaItems = Array.isArray(input.mediaItems) ? input.mediaItems.map(normalizeChatMedia).filter((item): item is ChatMedia => Boolean(item)).slice(0, 8) : [];
+    const media = normalizeChatMedia(input.media) ?? mediaItems[0] ?? null;
+    if (!body && !media) throw new Error("Tin nhắn cần có nội dung hoặc tệp đính kèm.");
+    const database = await requireDb();
+    const deliveredAt = onlineSockets.get(recipientId)?.size ? new Date() : null;
+    const inserted = await database.insert(mobileMessages).values({ senderId, recipientId, body, mediaPayload: media ? JSON.stringify({ media, mediaItems: mediaItems.length ? mediaItems : [media] }) : null, deliveredAt });
+    const messageId = Number((inserted as any).insertId ?? (inserted as any)[0]?.insertId);
+    const [record] = await database.select().from(mobileMessages).where(eq(mobileMessages.id, messageId)).limit(1);
+    if (!record) throw new Error("Không thể lưu tin nhắn.");
+    const message = toMobileMessage(record);
+    io.to(`mobile-user:${senderId}`).emit("chat:new", message);
+    io.to(`mobile-user:${recipientId}`).emit("chat:new", message);
+    if (deliveredAt) io.to(`mobile-user:${senderId}`).emit("chat:delivered", { recipientId, messageIds: [message.id], deliveredAt: deliveredAt.toISOString() });
+    return message;
+  };
+
+  const emitFriendRequest = (request: Awaited<ReturnType<typeof buildFriendRequest>>) => {
+    io.to(`mobile-user:${request.recipient.id}`).emit("friend:request", request);
+  };
 
   app.get("/health", (_req, res) => res.json({ ok: true }));
 
@@ -419,7 +485,9 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     const requestId = Number((inserted as any).insertId ?? (inserted as any)[0]?.insertId);
     const [record] = await database.select().from(friendRequests).where(eq(friendRequests.id, requestId)).limit(1);
     if (!record) throw new Error("Không thể gửi lời mời kết bạn.");
-    res.status(201).json(await buildFriendRequest(record));
+    const request = await buildFriendRequest(record);
+    emitFriendRequest(request);
+    res.status(201).json(request);
   }));
 
   app.post("/api/friend-requests/:requestId/respond", protectedRoute(async (req, res, user) => {
@@ -434,12 +502,84 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     res.json(await buildFriendRequest(updated));
   }));
 
-  app.get("/api/messages/:peerId", protectedRoute(async (_req, res) => {
-    // Luồng gọi chỉ cần lịch sử trống để mở màn hình chat và dùng các nút gọi.
-    res.json([]);
+  app.get("/api/conversations", protectedRoute(async (_req, res, user) => {
+    const database = await requireDb();
+    const [records, preferences] = await Promise.all([
+      database.select().from(mobileMessages).where(or(eq(mobileMessages.senderId, user.id), eq(mobileMessages.recipientId, user.id))).orderBy(desc(mobileMessages.createdAt)).limit(500),
+      database.select().from(mobileConversationPreferences).where(eq(mobileConversationPreferences.userId, user.id)),
+    ]);
+    const latestByPeer = new Map<number, MobileMessageRecord>();
+    const unreadByPeer = new Map<number, number>();
+    for (const record of records) {
+      const peerId = record.senderId === user.id ? record.recipientId : record.senderId;
+      if (!latestByPeer.has(peerId)) latestByPeer.set(peerId, record);
+      if (record.recipientId === user.id && !record.readAt) unreadByPeer.set(peerId, (unreadByPeer.get(peerId) ?? 0) + 1);
+    }
+    const peerIds = [...latestByPeer.keys()];
+    const peers = peerIds.length ? await database.select().from(mobileUsers).where(inArray(mobileUsers.id, peerIds)) : [];
+    const peerById = new Map(peers.map((peer) => [peer.id, peer]));
+    const preferenceByPeer = new Map(preferences.map((preference) => [preference.peerId, preference]));
+    const result = peerIds.flatMap((peerId) => {
+      const peer = peerById.get(peerId);
+      const latest = latestByPeer.get(peerId);
+      const preference = preferenceByPeer.get(peerId);
+      if (!peer || !latest || preference?.hidden) return [];
+      return [{ peer: toMobileUser(peer), lastMessage: toMobileMessage(latest), unreadCount: unreadByPeer.get(peerId) ?? 0, pinned: Boolean(preference?.pinned), archived: Boolean(preference?.archived), muted: Boolean(preference?.muted) }];
+    });
+    result.sort((left, right) => Number(right.pinned) - Number(left.pinned) || new Date(right.lastMessage.createdAt).getTime() - new Date(left.lastMessage.createdAt).getTime());
+    res.json(result);
   }));
 
-  app.post("/api/messages/:peerId/read", protectedRoute(async (_req, res) => {
+  app.patch("/api/conversations/:peerId", protectedRoute(async (req, res, user) => {
+    const peerId = parsePeerId(req.params.peerId);
+    const changes = req.body ?? {};
+    const database = await requireDb();
+    const [existing] = await database.select().from(mobileConversationPreferences).where(and(eq(mobileConversationPreferences.userId, user.id), eq(mobileConversationPreferences.peerId, peerId))).limit(1);
+    const choose = (key: "pinned" | "archived" | "muted" | "hidden") => typeof changes[key] === "boolean" ? Number(changes[key]) : Number(existing?.[key] ?? 0);
+    const values = { userId: user.id, peerId, pinned: choose("pinned"), archived: choose("archived"), muted: choose("muted"), hidden: choose("hidden"), updatedAt: new Date() };
+    await database.insert(mobileConversationPreferences).values(values).onDuplicateKeyUpdate({ set: values });
+    const [preference] = await database.select().from(mobileConversationPreferences).where(and(eq(mobileConversationPreferences.userId, user.id), eq(mobileConversationPreferences.peerId, peerId))).limit(1);
+    const peer = await getMobileUser(peerId);
+    res.json({ peer: peer ? toMobileUser(peer) : null, lastMessage: null, unreadCount: 0, pinned: Boolean(preference?.pinned), archived: Boolean(preference?.archived), muted: Boolean(preference?.muted) });
+  }));
+
+  app.post("/api/media", upload.single("file"), protectedRoute(async (req, res, user) => {
+    const file = req.file;
+    if (!file?.buffer?.length) throw new Error("Không nhận được tệp để tải lên.");
+    const mimeType = safeText(file.mimetype, 160).toLowerCase();
+    const kind = mimeType.startsWith("image/") ? "image" : mimeType.startsWith("video/") ? "video" : "file";
+    const allowed = kind !== "file" || mimeType === "application/pdf" || mimeType === "application/zip" || mimeType.startsWith("text/") || mimeType.includes("spreadsheet") || mimeType.includes("wordprocessing") || mimeType.includes("presentation") || mimeType.includes("excel");
+    if (!allowed) throw new Error("Định dạng tệp này chưa được hỗ trợ.");
+    if (file.size > 12 * 1024 * 1024) throw new Error("Tệp đính kèm cần nhỏ hơn 12 MB.");
+    const name = safeText(file.originalname, 255) || `tep-${Date.now()}`;
+    const safeName = name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const stored = await storagePut(`ketnoi-chat/${user.id}/${Date.now()}-${safeName}`, file.buffer, mimeType || "application/octet-stream");
+    res.status(201).json({ url: stored.url, kind, name, mimeType, size: file.size, thumbnailUrl: null });
+  }));
+
+  app.get("/api/messages/:peerId", protectedRoute(async (req, res, user) => {
+    const peerId = parsePeerId(req.params.peerId);
+    if (await relationshipBetween(user.id, peerId) !== "friends") throw new Error("Bạn chỉ có thể xem tin nhắn với bạn bè đã xác nhận.");
+    const database = await requireDb();
+    const records = await database.select().from(mobileMessages).where(or(and(eq(mobileMessages.senderId, user.id), eq(mobileMessages.recipientId, peerId)), and(eq(mobileMessages.senderId, peerId), eq(mobileMessages.recipientId, user.id)))).orderBy(asc(mobileMessages.createdAt)).limit(500);
+    res.json(records.map(toMobileMessage));
+  }));
+
+  app.post("/api/messages/:peerId", protectedRoute(async (req, res, user) => {
+    const peerId = parsePeerId(req.params.peerId);
+    res.status(201).json(await saveChatMessage(user.id, peerId, req.body ?? {}));
+  }));
+
+  app.post("/api/messages/:peerId/read", protectedRoute(async (req, res, user) => {
+    const peerId = parsePeerId(req.params.peerId);
+    const database = await requireDb();
+    const pending = await database.select().from(mobileMessages).where(and(eq(mobileMessages.senderId, peerId), eq(mobileMessages.recipientId, user.id)));
+    const messageIds = pending.filter((message) => !message.readAt).map((message) => message.id);
+    if (messageIds.length) {
+      const readAt = new Date();
+      await database.update(mobileMessages).set({ readAt }).where(inArray(mobileMessages.id, messageIds));
+      io.to(`mobile-user:${peerId}`).emit("chat:read", { readerId: user.id, peerId, messageIds, readAt: readAt.toISOString() });
+    }
     res.status(204).end();
   }));
 
@@ -553,6 +693,18 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     socket.on("call:ice-candidate", (payload: CallSignalPayload) => { void relay("call:ice-candidate", payload); });
     socket.on("call:hangup", (payload: CallSignalPayload) => { void relay("call:hangup", payload); });
     socket.on("call:screen-share", (payload: CallSignalPayload) => { void relay("call:screen-share", payload); });
+    socket.on("chat:send", (payload: { recipientId?: unknown; body?: unknown; media?: unknown; mediaItems?: unknown }, acknowledge?: (reply: { ok: boolean; message?: ReturnType<typeof toMobileMessage>; error?: string }) => void) => {
+      void saveChatMessage(user.id, parsePeerId(payload.recipientId), payload)
+        .then((message) => acknowledge?.({ ok: true, message }))
+        .catch((error) => acknowledge?.({ ok: false, error: asErrorMessage(error, "Không gửi được tin nhắn.") }));
+    });
+    socket.on("chat:typing", (payload: { recipientId?: unknown; isTyping?: unknown }) => {
+      const peerId = Number(payload.recipientId);
+      if (!Number.isInteger(peerId) || peerId <= 0) return;
+      void relationshipBetween(user.id, peerId).then((relationship) => {
+        if (relationship === "friends") io.to(`mobile-user:${peerId}`).emit("chat:typing", { fromUserId: user.id, isTyping: Boolean(payload.isTyping) });
+      }).catch(() => undefined);
+    });
 
     socket.on("disconnect", () => {
       const sockets = onlineSockets.get(user.id);
