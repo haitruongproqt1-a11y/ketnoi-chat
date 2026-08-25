@@ -2,42 +2,61 @@
 
 ## Định hướng sản phẩm
 
-**Kết Nối** là ứng dụng nhắn tin cá nhân ưu tiên giao tiếp nhanh, dễ thao tác bằng một tay và có điểm khác biệt là **chia sẻ màn hình trong cuộc gọi**. MVP sử dụng bố cục chân dung 9:16, thanh điều hướng dưới cố định, vùng chạm tối thiểu 44 pt và các màn hình gọi toàn màn hình theo nguyên tắc giao diện iOS hiện đại.
+**Kết Nối** là ứng dụng giao tiếp 1:1 Android-first, được tối giản quanh ba việc: vào tài khoản, tìm đúng bạn bè và liên lạc tức thời. Giao diện được thiết kế cho màn hình dọc 9:16 và thao tác một tay: hành động chính luôn nằm trong vùng chạm ở đáy hoặc góc trên dễ với tới, vùng chạm tối thiểu 44 pt, nội dung không đi vào khu vực notch hay thanh điều hướng. Phong cách lấy cảm hứng từ ứng dụng nhắn tin hiện đại, không sao chép tài sản hay nhận diện của sản phẩm khác.
 
 ## Danh sách màn hình
 
 | Màn hình | Nội dung chính | Hành động chính |
 | --- | --- | --- |
-| Đăng nhập | Số điện thoại, xác nhận mã và liên kết chính sách | Tiếp tục vào không gian chat |
-| Tin nhắn | Ô tìm kiếm, hàng thao tác nhanh, danh sách cuộc trò chuyện có trạng thái và tin nhắn mới | Mở chat, tạo chat, tìm kiếm |
-| Cuộc trò chuyện | Tiêu đề người nhận, trạng thái trực tuyến, luồng bong bóng tin nhắn, vùng soạn tin, đính kèm và ghi âm | Gửi tin, gọi thoại, gọi video, mở tệp |
-| Cuộc gọi video | Video người gọi/toàn màn hình, cửa sổ xem trước, thời lượng và các điều khiển gọi | Tắt tiếng, đổi camera, bật video, bật chia sẻ màn hình, kết thúc |
-| Chia sẻ màn hình | Trạng thái đang chia sẻ, cảnh báo quyền riêng tư và các bước ngắt chia sẻ rõ ràng | Bắt đầu hoặc dừng chia sẻ |
-| Danh bạ | Tìm kiếm, lời mời kết nối, danh sách bạn bè trực tuyến | Mở chat hoặc gọi nhanh |
-| Nhật ký | Các cuộc gọi gần đây, cuộc gọi nhỡ và thời lượng | Gọi lại hoặc mở chat |
-| Cá nhân | Ảnh đại diện, quyền riêng tư, thiết bị, cấu hình mạng và trợ giúp | Chỉnh hồ sơ, mở cài đặt |
+| Khởi động | Logo, kiểm tra phiên đã lưu và trạng thái mạng; không gọi camera, micro, WebRTC hoặc MediaProjection tại đây | Đi tới Đăng nhập hoặc Tin nhắn |
+| Đăng ký | Tên hiển thị, tên đăng nhập, mật khẩu và lỗi nhập liệu theo trường | Tạo tài khoản, tự đăng nhập khi thành công |
+| Đăng nhập | Tên đăng nhập, mật khẩu, ghi nhớ phiên và thông báo lỗi dễ hiểu | Đăng nhập, đi tới Tin nhắn |
+| Tin nhắn | Danh sách hội thoại 1:1, trạng thái online và ô tìm kiếm hội thoại | Mở chat hoặc Danh bạ |
+| Danh bạ/Tìm bạn | Tìm theo tên hiển thị hoặc tên đăng nhập, lời mời đang chờ và bạn bè đã xác nhận | Gửi lời mời, chấp nhận, mở chat |
+| Chat 1:1 | Header tên/trạng thái bạn bè, danh sách tin, vùng soạn an toàn và ba nút liên lạc | Gửi tin, gọi thoại, gọi video, khởi tạo chia sẻ màn hình |
+| Cuộc gọi thoại | Avatar, tên, trạng thái ringing/connecting/connected, thời lượng sau khi kết nối | Bật/tắt micro, loa ngoài, kết thúc |
+| Cuộc gọi video | Video đối phương là bề mặt chính, local preview nhỏ có thể đổi góc, trạng thái mạng | Micro, loa, camera, đổi camera, kết thúc |
+| Chia sẻ màn hình | Phiên video đang kết nối với chỉ báo đang chia sẻ rõ ràng và nút dừng luôn nhìn thấy | Bắt đầu/dừng MediaProjection, quay lại camera |
 
 ## Luồng người dùng trọng tâm
 
-Người dùng vào tab **Tin nhắn**, chạm vào một cuộc trò chuyện, sau đó có thể gửi nội dung từ vùng nhập ở đáy màn hình. Từ đầu trang chat, người dùng chọn gọi thoại hoặc gọi video. Trong cuộc gọi video, nút **Chia sẻ** mở một bảng xác nhận giải thích rằng mọi nội dung trên màn hình có thể được người bên kia nhìn thấy; khi xác nhận, trạng thái chia sẻ hiển thị nổi bật và luôn có nút dừng trong tầm với của ngón cái.
+Người dùng đăng ký hoặc đăng nhập, sau đó mở **Danh bạ** để tìm một người theo tên. Khi lời mời được xác nhận, người dùng có thể vào cuộc trò chuyện 1:1. Header chat đặt ba nút tách biệt: **Gọi thoại**, **Gọi video** và **Chia sẻ màn hình**. Nút Chia sẻ màn hình khởi tạo một cuộc gọi video trước; chỉ sau khi hai bên đã kết nối, người khởi tạo mới nhận hộp thoại cấp quyền MediaProjection của Android và video camera được thay bằng luồng màn hình. Điều này ngăn chia sẻ màn hình khi không có người nhận.
 
-Người dùng cũng có thể bắt đầu từ tab **Danh bạ**: chọn một liên hệ, xem hồ sơ rút gọn rồi mở chat hoặc gọi ngay. Tab **Nhật ký** giúp gọi lại từ các cuộc gọi gần đây, còn tab **Cá nhân** dành cho quản lý thiết bị, quyền riêng tư và cấu hình kết nối.
+Cuộc gọi thoại chỉ yêu cầu microphone khi người dùng gọi hoặc chấp nhận. Cuộc gọi video mới yêu cầu camera và microphone. Chia sẻ màn hình chỉ hiển thị xác nhận hệ thống khi người dùng chạm nút chia sẻ trong cuộc gọi video đã kết nối. Khi kết nối tạm rơi do chuyển Wi-Fi/4G, màn hình giữ trạng thái **Đang khôi phục kết nối**; logic signaling tạo ICE restart có giới hạn số lần và báo lỗi rõ ràng nếu không thể phục hồi.
 
-## Màu sắc và phong cách
+| Trạng thái cuộc gọi | Thông điệp UI | Hành vi kỹ thuật |
+| --- | --- | --- |
+| Đang gọi/Đổ chuông | “Đang chờ phản hồi…” | Chờ offer/answer, timeout có kiểm soát |
+| Đang kết nối | “Đang thiết lập kênh bảo mật” | Trao đổi ICE qua Socket.io, xếp hàng candidate trước remote description |
+| Đã kết nối | Thời lượng `mm:ss` | Bắt đầu bộ đếm, cho phép điều khiển media |
+| Mạng chập chờn | “Đang khôi phục kết nối…” | Gửi offer ICE restart, giữ media và signaling còn sống |
+| Kết thúc/Lỗi | Nêu rõ người dùng có thể làm gì tiếp | Dừng track, đóng peer connection, giải phóng audio route và listener đúng một lần |
+
+## Mô hình dữ liệu dùng chung
+
+| Thực thể | Trường tối thiểu | Mục đích |
+| --- | --- | --- |
+| Người dùng | `id`, `username`, `displayName`, `passwordHash` | Xác thực và hiển thị danh bạ |
+| Quan hệ bạn bè | `requesterId`, `recipientId`, `status` | Kiểm tra chỉ bạn bè đã xác nhận mới được gọi hoặc chat |
+| Tin nhắn | `id`, `senderId`, `recipientId`, `body`, `createdAt` | Lưu lịch sử chat 1:1 có thẩm quyền ở server |
+| Phiên gọi | `callId`, `callerId`, `calleeId`, `kind`, `status`, `startedAt`, `endedAt` | Phục vụ invite, kết thúc, lịch sử và trạng thái bận |
+| Gói signaling | `callId`, `toUserId`, `description` hoặc `candidate`, `iceRestart` | Chỉ truyền offer, answer, ICE, hangup và screen-share state qua Socket.io |
+
+## Mạng P2P và quyền riêng tư
+
+Mọi `RTCPeerConnection` sử dụng cùng danh sách nhiều STUN Google và các TURN OpenRelay mà yêu cầu đã nêu. Server Socket.io chỉ xác thực người dùng, bảo toàn thứ tự signaling, chuyển tiếp offer/answer/candidate và ghi lịch sử; server không nhận luồng camera hoặc màn hình khi P2P trực tiếp thành công. TURN là relay kỹ thuật khi NAT/firewall cản P2P, vì vậy một dịch vụ OpenRelay công khai chỉ là phương án thử nghiệm không có cam kết về tính sẵn sàng hay bảo mật production.
+
+> Mục tiêu “1000 km+” phụ thuộc đường truyền, NAT/firewall và chất lượng TURN chứ không thể được đảm bảo chỉ từ mã ứng dụng. Tiêu chí phát hành là kiểm thử trên ít nhất hai Android, có một lượt khác mạng Wi-Fi/4G, thay vì suy diễn từ giả lập hoặc build thành công.
+
+## Màu sắc và thao tác
 
 | Vai trò | Màu | Cách dùng |
 | --- | --- | --- |
-| Xanh Kết Nối | `#1577E8` | Nút chính, trạng thái đang chọn, liên kết và bong bóng tin gửi đi |
-| Xanh đêm | `#0A284A` | Thanh tiêu đề cuộc gọi, chữ đậm và vùng video tối |
-| Nền sương | `#F4F7FB` | Nền danh sách và bề mặt phân lớp nhẹ |
-| Trắng | `#FFFFFF` | Thẻ, thanh nhập và bong bóng tin nhận được |
-| Xanh thành công | `#19A974` | Trạng thái trực tuyến và cuộc gọi đã kết nối |
-| Đỏ ngắt gọi | `#E5484D` | Kết thúc cuộc gọi, cảnh báo và trạng thái cuộc gọi nhỡ |
+| Xanh Kết Nối | `#1577E8` | Nút chính, tab đang chọn, trạng thái hành động |
+| Xanh đêm | `#081E37` | Bề mặt cuộc gọi, chữ đậm và nền video chờ |
+| Nền sương | `#F4F7FB` | Danh sách, form và bề mặt nhẹ |
+| Trắng | `#FFFFFF` | Thẻ, vùng soạn và bong bóng tin nhận |
+| Xanh kết nối | `#19A974` | Online, cuộc gọi đã kết nối và nhận cuộc gọi |
+| Đỏ kết thúc | `#E5484D` | Kết thúc/từ chối cuộc gọi và lỗi rõ ràng |
 
-Giao diện dùng chữ có độ tương phản cao, bo góc mềm 16–24 pt cho thẻ và bong bóng tin, đường phân cách mảnh. Hệ thống ưu tiên phản hồi ấn nhẹ, haptic tiết chế và trạng thái tải/đang gửi rõ ràng thay vì hiệu ứng phô trương.
-
-## Nguyên tắc quyền riêng tư và cuộc gọi
-
-Kết nối media được thiết kế theo **WebRTC P2P**: máy chủ chỉ hỗ trợ xác thực, báo hiệu và cấp thông tin ICE; luồng âm thanh/video đi trực tiếp khi mạng cho phép, hoặc qua TURN khi không thể xuyên NAT. Chia sẻ màn hình luôn đòi xác nhận rõ ràng của hệ điều hành và hiển thị dấu hiệu đang chia sẻ xuyên suốt cuộc gọi.
-
-> Bản MVP sẽ dựng trải nghiệm, mô hình dữ liệu và hợp đồng cấu hình WebRTC. Cuộc gọi thật và chia sẻ màn hình trên iOS/Android cần một development build có mô-đun native WebRTC, máy chủ báo hiệu cùng hạ tầng TURN riêng trước khi phát hành.
+Điều khiển cuộc gọi dùng nền tối, nhãn ngắn bên dưới icon và phản hồi chạm nhẹ. Video remote luôn ưu tiên toàn màn hình; local preview là một khung nhỏ có viền rõ. Khi chia sẻ màn hình, nhãn “Bạn đang chia sẻ màn hình” luôn hiện cùng nút dừng để tránh chia sẻ nhầm kéo dài.

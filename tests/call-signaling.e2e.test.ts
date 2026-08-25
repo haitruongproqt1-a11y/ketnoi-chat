@@ -2,7 +2,15 @@ import { afterEach, describe, expect, it } from "vitest";
 import { io, type Socket } from "socket.io-client";
 
 type AuthPayload = { token: string; user: { id: number; username: string } };
-type SignalPayload = { callId: string; fromUserId: number; isScreenSharing?: boolean; reason?: string };
+type SignalPayload = {
+  callId: string;
+  fromUserId: number;
+  isScreenSharing?: boolean;
+  reason?: string;
+  iceRestart?: boolean;
+  description?: { type: string; sdp: string };
+  candidate?: { candidate: string; sdpMid?: string; sdpMLineIndex?: number };
+};
 
 const baseUrl = process.env.KETNOI_CALL_TEST_URL ?? "http://127.0.0.1:3000";
 const shouldRun = process.env.RUN_KETNOI_CALL_E2E === "true";
@@ -68,8 +76,20 @@ describe.skipIf(!shouldRun)("call signaling end-to-end", () => {
     });
   });
 
-  it("relays offer/answer/screen-share/hangup and saves call history", async () => {
+  it("relays offer/answer/candidates/ICE restart/screen-share/hangup and saves call history", async () => {
     const [caller, callee] = await Promise.all([register("caller"), register("callee")]);
+    const iceConfig = await request<{ iceServers: Array<{ urls: string[]; username?: string; credential?: string }> }>("/api/webrtc/config", {}, caller.token);
+    expect(iceConfig.iceServers.map((server) => server.urls[0])).toEqual([
+      "stun:stun.l.google.com:19302",
+      "stun:stun1.l.google.com:19302",
+      "stun:stun2.l.google.com:19302",
+      "turn:openrelay.metered.ca:80",
+      "turn:openrelay.metered.ca:443?transport=tcp",
+    ]);
+    expect(iceConfig.iceServers.slice(3)).toEqual([
+      { urls: ["turn:openrelay.metered.ca:80"], username: "openrelayproject", credential: "openrelayproject" },
+      { urls: ["turn:openrelay.metered.ca:443?transport=tcp"], username: "openrelayproject", credential: "openrelayproject" },
+    ]);
     const invite = await request<{ id: number }>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId: callee.user.id }) }, caller.token);
     await request(`/api/friend-requests/${invite.id}/respond`, { method: "POST", body: JSON.stringify({ accept: true }) }, callee.token);
 
@@ -92,6 +112,18 @@ describe.skipIf(!shouldRun)("call signaling end-to-end", () => {
     const answer = once<SignalPayload>(callerSocket, "call:answer", (payload) => payload.callId === callId);
     calleeSocket.emit("call:answer", { toUserId: caller.user.id, callId, description: { type: "answer", sdp: "test-answer" } });
     await expect(answer).resolves.toMatchObject({ callId, fromUserId: callee.user.id });
+
+    const candidate = once<SignalPayload>(calleeSocket, "call:ice-candidate", (payload) => payload.callId === callId);
+    callerSocket.emit("call:ice-candidate", { toUserId: callee.user.id, callId, candidate: { candidate: "candidate:1 1 UDP 1 192.0.2.10 54000 typ host", sdpMid: "0", sdpMLineIndex: 0 } });
+    await expect(candidate).resolves.toMatchObject({ callId, candidate: expect.objectContaining({ sdpMid: "0" }) });
+
+    const restartOffer = once<SignalPayload>(calleeSocket, "call:offer", (payload) => payload.callId === callId && payload.iceRestart === true);
+    callerSocket.emit("call:offer", { toUserId: callee.user.id, callId, withVideo: true, iceRestart: true, description: { type: "offer", sdp: "test-ice-restart-offer" } });
+    await expect(restartOffer).resolves.toMatchObject({ callId, iceRestart: true, description: { type: "offer", sdp: "test-ice-restart-offer" } });
+
+    const restartAnswer = once<SignalPayload>(callerSocket, "call:answer", (payload) => payload.callId === callId && payload.iceRestart === true);
+    calleeSocket.emit("call:answer", { toUserId: caller.user.id, callId, iceRestart: true, description: { type: "answer", sdp: "test-ice-restart-answer" } });
+    await expect(restartAnswer).resolves.toMatchObject({ callId, iceRestart: true });
 
     const shareStarted = once<SignalPayload>(calleeSocket, "call:screen-share", (payload) => payload.callId === callId && payload.isScreenSharing === true);
     callerSocket.emit("call:screen-share", { toUserId: callee.user.id, callId, isScreenSharing: true });

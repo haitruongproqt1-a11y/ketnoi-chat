@@ -17,6 +17,7 @@ export type CallSignalPayload = {
   reason?: "ended" | "missed" | "declined";
   quickReply?: string;
   isScreenSharing?: boolean;
+  iceRestart?: boolean;
   message?: string;
 };
 

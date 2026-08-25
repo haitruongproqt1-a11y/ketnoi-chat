@@ -1,4 +1,4 @@
-import { createHmac, randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
+import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from "node:crypto";
 import type { Server as HttpServer } from "node:http";
 import { promisify } from "node:util";
 
@@ -26,9 +26,13 @@ import { ENV } from "./_core/env";
 import { storagePut } from "./storage";
 
 const scrypt = promisify(scryptCallback);
-const GOOGLE_STUN = "stun:stun.l.google.com:19302";
-const OPEN_RELAY_TURN_URLS = ["turn:staticauth.openrelay.metered.ca:80?transport=udp", "turn:staticauth.openrelay.metered.ca:443?transport=tcp", "turns:staticauth.openrelay.metered.ca:443?transport=tcp"];
-const OPEN_RELAY_SHARED_SECRET = "openrelayprojectsecret";
+const REQUIRED_ICE_SERVERS = [
+  { urls: ["stun:stun.l.google.com:19302"] },
+  { urls: ["stun:stun1.l.google.com:19302"] },
+  { urls: ["stun:stun2.l.google.com:19302"] },
+  { urls: ["turn:openrelay.metered.ca:80"], username: "openrelayproject", credential: "openrelayproject" },
+  { urls: ["turn:openrelay.metered.ca:443?transport=tcp"], username: "openrelayproject", credential: "openrelayproject" },
+] as const;
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 30;
 
 type MobileSession = { userId: number; username: string };
@@ -46,6 +50,7 @@ type CallSignalPayload = {
   reason?: CallReason;
   quickReply?: string;
   isScreenSharing?: boolean;
+  iceRestart?: boolean;
 };
 
 function toIso(value: Date | null | undefined) {
@@ -151,12 +156,6 @@ function safeText(value: unknown, maxLength: number) {
 
 function validCallId(value: unknown) {
   return typeof value === "string" && /^[a-zA-Z0-9_-]{8,96}$/.test(value) ? value : null;
-}
-
-function openRelayFallbackCredential(userId: number) {
-  const username = `${Math.floor(Date.now() / 1000) + 60 * 60}:${userId}:ketnoi`;
-  const credential = createHmac("sha1", OPEN_RELAY_SHARED_SECRET).update(username).digest("base64");
-  return { urls: OPEN_RELAY_TURN_URLS, username, credential };
 }
 
 async function requireDb() {
@@ -695,14 +694,8 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     res.status(204).end();
   }));
 
-  app.get("/api/webrtc/config", protectedRoute(async (_req, res, user) => {
-    const turnUrls = safeText(process.env.WEBRTC_TURN_URL, 1000).split(",").map((url) => url.trim()).filter(Boolean);
-    const turnUsername = safeText(process.env.WEBRTC_TURN_USERNAME, 256);
-    const turnCredential = safeText(process.env.WEBRTC_TURN_CREDENTIAL, 512);
-    const iceServers = [{ urls: [GOOGLE_STUN] } as { urls: string[]; username?: string; credential?: string }];
-    if (turnUrls.length && turnUsername && turnCredential) iceServers.push({ urls: turnUrls, username: turnUsername, credential: turnCredential });
-    else iceServers.push(openRelayFallbackCredential(user.id));
-    res.json({ iceServers });
+  app.get("/api/webrtc/config", protectedRoute(async (_req, res, _user) => {
+    res.json({ iceServers: REQUIRED_ICE_SERVERS.map((server) => ({ ...server, urls: [...server.urls] })) });
   }));
 
   io.use(async (socket: Socket, next: (error?: Error) => void) => {

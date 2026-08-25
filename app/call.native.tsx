@@ -15,6 +15,7 @@ import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
 import { createMobileMediaConstraints } from "@/lib/call-media-config";
 import { createAndroidScreenShareConstraints } from "@/lib/android-screen-share-config";
 import { createCallId } from "@/lib/call-id";
+import { ICE_RESTART_DELAY_MS, MAX_ICE_RESTART_ATTEMPTS, shouldStartIceRestart } from "@/lib/call-ice-recovery";
 import { startCallWaitingTone, startIncomingRingtone, stopCallWaitingTone, stopIncomingRingtone } from "@/lib/sound-feedback";
 import type { CallSignalEnvelope } from "@/lib/call-signal-mailbox";
 
@@ -33,7 +34,7 @@ function asDescription(description: { type?: string; sdp?: string }) {
 }
 
 export default function CallScreen() {
-  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode, callId: callIdParam, autoAnswer } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video"; callId?: string; autoAnswer?: "1" }>();
+  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode, callId: callIdParam, autoAnswer, startScreenShare } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video"; callId?: string; autoAnswer?: "1"; startScreenShare?: "1" }>();
   const peerId = Number(peerIdParam);
   const withVideo = mode !== "audio";
   const { token } = useMobileAuth();
@@ -52,6 +53,7 @@ export default function CallScreen() {
   const [previewCorner, setPreviewCorner] = useState<PreviewCorner>("right");
   const [isScreenSharing, setIsScreenSharing] = useState(false);
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
   const [peerName, setPeerName] = useState(peerNameParam?.trim() || `Người dùng #${peerId}`);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
@@ -59,8 +61,13 @@ export default function CallScreen() {
   const [feedback, setFeedback] = useState<string | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const signalQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const iceRestartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const iceRestartAttemptsRef = useRef(0);
+  const autoShareStartedRef = useRef(false);
 
   const stopCall = (notify = true) => {
+    if (iceRestartTimerRef.current) clearTimeout(iceRestartTimerRef.current);
+    iceRestartTimerRef.current = null;
     if (notify && peerId) void sendSignal("call:hangup", { toUserId: peerId, callId: callId.current }).catch(() => undefined);
     peerRef.current?.close();
     peerRef.current = null;
@@ -71,6 +78,7 @@ export default function CallScreen() {
     InCallManager.stop();
     setLocalStream(null);
     setRemoteStream(null);
+    setIsRecovering(false);
     setCallState("ended");
     clearIncomingOffer();
     clearCallSignals(callId.current);
@@ -84,20 +92,40 @@ export default function CallScreen() {
 
   const setupPeer = async () => {
     if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
-    const peer = new RTCPeerConnection(createMobilePeerConfiguration(await mobileApi.iceConfig(token)) as any);
+    const peer = new RTCPeerConnection(createMobilePeerConfiguration() as any);
     peer.onicecandidate = ({ candidate }: any) => {
       if (candidate) void sendSignal("call:ice-candidate", { toUserId: peerId, callId: callId.current, candidate: candidate.toJSON() }).catch(() => undefined);
     };
     peer.ontrack = (event: any) => {
       if (event.streams?.[0]) setRemoteStream(event.streams[0]);
     };
-    peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") setCallState("connected");
-      if (["failed", "disconnected"].includes(peer.connectionState)) {
-        setError("Kết nối cuộc gọi đã bị ngắt.");
-        setCallState("error");
+    const observeIceConnection = () => {
+      const state = peer.iceConnectionState;
+      if (state === "connected" || state === "completed") {
+        if (iceRestartTimerRef.current) clearTimeout(iceRestartTimerRef.current);
+        iceRestartTimerRef.current = null;
+        iceRestartAttemptsRef.current = 0;
+        setIsRecovering(false);
+        setCallState("connected");
+        return;
       }
+      if (!["disconnected", "failed"].includes(state)) return;
+      setIsRecovering(true);
+      setCallState("connecting");
+      if (direction === "incoming" || iceRestartTimerRef.current) return;
+      if (!shouldStartIceRestart(state, iceRestartAttemptsRef.current, true)) {
+        setIsRecovering(false);
+        setError("Không thể khôi phục kết nối cuộc gọi. Vui lòng gọi lại.");
+        setCallState("error");
+        return;
+      }
+      iceRestartTimerRef.current = setTimeout(() => {
+        iceRestartTimerRef.current = null;
+        void requestIceRestart(peer);
+      }, ICE_RESTART_DELAY_MS);
     };
+    peer.oniceconnectionstatechange = observeIceConnection;
+    peer.onconnectionstatechange = observeIceConnection;
     peerRef.current = peer;
     return peer;
   };
@@ -109,6 +137,30 @@ export default function CallScreen() {
     localRef.current = stream;
     setLocalStream(stream);
     return stream;
+  };
+
+  const requestIceRestart = async (peer: RTCPeerConnection) => {
+    const state = peer.iceConnectionState;
+    if (!shouldStartIceRestart(state, iceRestartAttemptsRef.current, direction !== "incoming")) return;
+    try {
+      iceRestartAttemptsRef.current += 1;
+      setIsRecovering(true);
+      const offer = await peer.createOffer({ iceRestart: true } as any);
+      await peer.setLocalDescription(offer);
+      await sendSignal("call:offer", {
+        toUserId: peerId,
+        callId: callId.current,
+        description: offer,
+        withVideo,
+        iceRestart: true,
+      });
+    } catch {
+      if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
+        setIsRecovering(false);
+        setError("Không thể khôi phục kết nối cuộc gọi. Vui lòng gọi lại.");
+        setCallState("error");
+      }
+    }
   };
 
   const makeOutgoingCall = async () => {
@@ -186,6 +238,14 @@ export default function CallScreen() {
 
   const applySignal = useCallback(async ({ event, payload }: CallSignalEnvelope) => {
     if (payload.callId !== callId.current) return;
+    if (event === "call:offer" && payload.iceRestart && payload.description && peerRef.current) {
+      await peerRef.current.setRemoteDescription(asDescription(payload.description));
+      await flushCandidates();
+      const answer = await peerRef.current.createAnswer();
+      await peerRef.current.setLocalDescription(answer);
+      await sendSignal("call:answer", { toUserId: peerId, callId: callId.current, description: answer, iceRestart: true });
+      setIsRecovering(false);
+    }
     if (event === "call:answer" && payload.description && peerRef.current) {
       await peerRef.current.setRemoteDescription(asDescription(payload.description));
       await flushCandidates();
@@ -204,10 +264,11 @@ export default function CallScreen() {
       InCallManager.stop();
       setLocalStream(null);
       setRemoteStream(null);
+      setIsRecovering(false);
       setError(payload.message ?? "Không thể thiết lập cuộc gọi.");
       setCallState("error");
     }
-  }, [clearIncomingOffer, clearCallSignals]);
+  }, [clearIncomingOffer, clearCallSignals, sendSignal]);
 
   const enqueueSignal = useCallback((signal: CallSignalEnvelope) => {
     signalQueueRef.current = signalQueueRef.current
@@ -305,6 +366,12 @@ export default function CallScreen() {
     }
   };
 
+  useEffect(() => {
+    if (startScreenShare !== "1" || !withVideo || callState !== "connected" || autoShareStartedRef.current) return;
+    autoShareStartedRef.current = true;
+    void toggleScreenShare();
+  }, [callState, startScreenShare, withVideo]);
+
   const leave = () => {
     stopCall(true);
     router.back();
@@ -316,7 +383,7 @@ export default function CallScreen() {
     router.back();
   };
 
-  const status = callState === "connected" ? formatDuration(seconds) : callState === "incoming" ? "Cuộc gọi đến" : callState === "error" ? error : "Đang kết nối…";
+  const status = callState === "connected" ? formatDuration(seconds) : callState === "incoming" ? "Cuộc gọi đến" : callState === "error" ? error : isRecovering ? "Đang khôi phục kết nối…" : "Đang kết nối…";
   const previewStream = isScreenSharing ? screenRef.current : localStream;
   const audioLabel = direction === "incoming" ? "Người gọi" : "Đang gọi";
   const initials = peerName.split(" ").filter(Boolean).map((word) => word[0]).slice(0, 2).join("").toUpperCase() || "KN";

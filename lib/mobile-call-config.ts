@@ -1,13 +1,22 @@
-import type { IceConfig } from "./mobile-api";
+export const REQUIRED_ICE_SERVERS = [
+  { urls: ["stun:stun.l.google.com:19302"] },
+  { urls: ["stun:stun1.l.google.com:19302"] },
+  { urls: ["stun:stun2.l.google.com:19302"] },
+  {
+    urls: ["turn:openrelay.metered.ca:80"],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+  {
+    urls: ["turn:openrelay.metered.ca:443?transport=tcp"],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
+] as const;
 
-export const GOOGLE_PUBLIC_STUN = "stun:stun.l.google.com:19302";
-
-export function createMobilePeerConfiguration(ice: IceConfig) {
-  if (!ice.iceServers.length || !ice.iceServers.some((server) => server.urls.length > 0)) {
-    throw new Error("ICE configuration must contain at least one STUN or TURN URL");
-  }
+export function createMobilePeerConfiguration() {
   return {
-    iceServers: ice.iceServers,
+    iceServers: REQUIRED_ICE_SERVERS.map((server) => ({ ...server, urls: [...server.urls] })),
     iceCandidatePoolSize: 8,
     bundlePolicy: "max-bundle" as const,
     rtcpMuxPolicy: "require" as const,

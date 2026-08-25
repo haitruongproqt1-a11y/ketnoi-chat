@@ -30,7 +30,7 @@ function VideoSurface({ stream, muted, style }: { stream: any; muted: boolean; s
 }
 
 export default function WebCallScreen() {
-  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video" }>();
+  const { peerId: peerIdParam, peerName: peerNameParam, direction, mode, startScreenShare } = useLocalSearchParams<{ peerId: string; peerName?: string; direction?: "incoming"; mode?: "audio" | "video"; startScreenShare?: "1" }>();
   const peerId = Number(peerIdParam);
   const withVideo = mode !== "audio";
   const { token } = useMobileAuth();
@@ -50,6 +50,7 @@ export default function WebCallScreen() {
   const [remoteIsScreenSharing, setRemoteIsScreenSharing] = useState(false);
   const [seconds, setSeconds] = useState(0);
   const [error, setError] = useState("");
+  const autoShareStarted = useRef(false);
   const peerName = peerNameParam?.trim() || `Người dùng #${peerId}`;
 
   const stopCall = (notify = true) => {
@@ -77,7 +78,7 @@ export default function WebCallScreen() {
 
   const setupPeer = async () => {
     if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
-    const peer = new RTCPeerConnection(createMobilePeerConfiguration(await mobileApi.iceConfig(token)) as RTCConfiguration);
+    const peer = new RTCPeerConnection(createMobilePeerConfiguration() as RTCConfiguration);
     peer.onicecandidate = ({ candidate }) => {
       if (candidate) sendSignal("call:ice-candidate", { toUserId: peerId, callId: callId.current, candidate: candidate.toJSON() });
     };
@@ -237,6 +238,12 @@ export default function WebCallScreen() {
       setError(reason instanceof Error ? reason.message : "Không thể bắt đầu chia sẻ màn hình.");
     }
   };
+
+  useEffect(() => {
+    if (startScreenShare !== "1" || !withVideo || callState !== "connected" || autoShareStarted.current) return;
+    autoShareStarted.current = true;
+    void toggleScreenShare();
+  }, [callState, startScreenShare, withVideo]);
 
   const leave = () => {
     stopCall(true);

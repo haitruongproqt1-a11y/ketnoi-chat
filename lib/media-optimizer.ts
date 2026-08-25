@@ -1,6 +1,5 @@
 import * as FileSystem from "expo-file-system/legacy";
 import * as ImageManipulator from "expo-image-manipulator";
-import { Video } from "react-native-compressor";
 
 export type PickedMedia = { uri: string; name: string; mimeType: string; size: number; kind: "image" | "video"; width?: number; height?: number };
 
@@ -16,6 +15,9 @@ export async function optimizeMedia(asset: PickedMedia, onProgress: (progress: n
     onProgress(1);
     return { ...asset, uri: result.uri, name: asset.name.replace(/\.[^.]+$/, "") + ".jpg", mimeType: "image/jpeg", size: await fileSize(result.uri, asset.size) };
   }
-  const uri = await Video.compress(asset.uri, { compressionMethod: "auto", maxSize: 960, minimumFileSizeForCompress: 350_000, getCancellationId: (id) => onCancelReady(() => Video.cancelCompression(id)) }, onProgress);
-  return { ...asset, uri, size: await fileSize(uri, asset.size) };
+  // Giữ video nguyên bản trong MVP để không nạp native compressor khi khởi động.
+  // Giới hạn kích thước vẫn được áp dụng bởi màn hình chat và backend.
+  onCancelReady(() => undefined);
+  onProgress(1);
+  return asset;
 }

@@ -102,15 +102,6 @@ const config: ExpoConfig = {
         microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone for voice and video calls.",
       },
     ],
-    "react-native-compressor",
-    [
-      "expo-notifications",
-      {
-        defaultChannel: "messages",
-        color: "#1577E8",
-        enableBackgroundRemoteNotifications: true,
-      },
-    ],
     [
       "expo-video",
       {
