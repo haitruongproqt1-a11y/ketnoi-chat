@@ -85,5 +85,7 @@ describe.skipIf(!shouldRun)("call signaling end-to-end", () => {
 
     const history = await request<Array<{ id: string; kind: string; status: string }>>(`/api/calls?peerId=${callee.user.id}`, {}, caller.token);
     expect(history).toContainEqual(expect.objectContaining({ id: callId, kind: "video", status: "ended" }));
+    const chatHistory = await request<Array<{ callEvent?: { callId: string; kind: string; status: string } }>>(`/api/messages/${callee.user.id}`, {}, caller.token);
+    expect(chatHistory).toContainEqual(expect.objectContaining({ callEvent: expect.objectContaining({ callId, kind: "video", status: "ended" }) }));
   }, 30_000);
 });

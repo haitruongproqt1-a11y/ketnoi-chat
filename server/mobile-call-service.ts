@@ -35,7 +35,8 @@ type MobileSession = { userId: number; username: string };
 type CallKind = "audio" | "video";
 type CallReason = "ended" | "missed" | "declined";
 type ChatMedia = { url: string; kind: "image" | "video" | "file"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
-type ChatMediaPayload = { media: ChatMedia | null; mediaItems: ChatMedia[] };
+type ChatCallEvent = { callId: string; kind: CallKind; status: "missed" | "answered" | "declined" | "ended"; durationSeconds: number };
+type ChatMediaPayload = { media: ChatMedia | null; mediaItems: ChatMedia[]; callEvent: ChatCallEvent | null };
 type CallSignalPayload = {
   toUserId?: number;
   callId?: string;
@@ -75,7 +76,13 @@ function toCallHistory(record: CallRecord, currentUserId: number, peer: MobileUs
 }
 
 function emptyMediaPayload(): ChatMediaPayload {
-  return { media: null, mediaItems: [] };
+  return { media: null, mediaItems: [], callEvent: null };
+}
+
+function isChatCallEvent(value: unknown): value is ChatCallEvent {
+  if (!value || typeof value !== "object") return false;
+  const event = value as Partial<ChatCallEvent>;
+  return typeof event.callId === "string" && (event.kind === "audio" || event.kind === "video") && (event.status === "missed" || event.status === "answered" || event.status === "declined" || event.status === "ended") && typeof event.durationSeconds === "number";
 }
 
 function isChatMedia(value: unknown): value is ChatMedia {
@@ -90,7 +97,7 @@ function parseMediaPayload(value: string | null): ChatMediaPayload {
     const parsed = JSON.parse(value) as Partial<ChatMediaPayload>;
     const items = Array.isArray(parsed.mediaItems) ? parsed.mediaItems.filter(isChatMedia) : [];
     const media = isChatMedia(parsed.media) ? parsed.media : items[0] ?? null;
-    return { media, mediaItems: items };
+    return { media, mediaItems: items, callEvent: isChatCallEvent(parsed.callEvent) ? parsed.callEvent : null };
   } catch {
     return emptyMediaPayload();
   }
@@ -105,7 +112,7 @@ function normalizeChatMedia(value: unknown): ChatMedia | null {
 
 function toMobileMessage(record: MobileMessageRecord) {
   const payload = record.mediaRevokedAt ? emptyMediaPayload() : parseMediaPayload(record.mediaPayload);
-  return { id: record.id, senderId: record.senderId, recipientId: record.recipientId, body: record.body, createdAt: record.createdAt.toISOString(), deliveredAt: toIso(record.deliveredAt), readAt: toIso(record.readAt), media: payload.media, mediaItems: payload.mediaItems, mediaRevokedAt: toIso(record.mediaRevokedAt) };
+  return { id: record.id, senderId: record.senderId, recipientId: record.recipientId, body: record.body, createdAt: record.createdAt.toISOString(), deliveredAt: toIso(record.deliveredAt), readAt: toIso(record.readAt), media: payload.media, mediaItems: payload.mediaItems, mediaRevokedAt: toIso(record.mediaRevokedAt), callEvent: payload.callEvent };
 }
 
 function getSessionKey() {
@@ -260,12 +267,12 @@ async function markCallAnswered(callId: string) {
 async function finishCall(callId: string, reason: CallReason) {
   const database = await requireDb();
   const [record] = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
-  if (!record || record.endedAt) return record ?? null;
+  if (!record || record.endedAt) return { record: record ?? null, finalized: false };
   const endedAt = new Date();
   const durationSeconds = record.answeredAt ? Math.max(0, Math.floor((endedAt.getTime() - record.answeredAt.getTime()) / 1000)) : 0;
-  const status = reason === "ended" ? "ended" : reason;
+  const status: CallRecord["status"] = reason === "ended" ? "ended" : reason;
   await database.update(callRecords).set({ status, endedAt, durationSeconds }).where(eq(callRecords.id, callId));
-  return { ...record, status, endedAt, durationSeconds };
+  return { record: { ...record, status, endedAt, durationSeconds }, finalized: true };
 }
 
 async function sendIncomingCallPush(calleeId: number, caller: MobileUserRecord, callId: string, withVideo: boolean) {
@@ -372,6 +379,23 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     io.to(`mobile-user:${senderId}`).emit("chat:new", message);
     io.to(`mobile-user:${recipientId}`).emit("chat:new", message);
     if (deliveredAt) io.to(`mobile-user:${senderId}`).emit("chat:delivered", { recipientId, messageIds: [message.id], deliveredAt: deliveredAt.toISOString() });
+    return message;
+  };
+
+  const saveCallHistoryMessage = async (record: CallRecord) => {
+    const database = await requireDb();
+    const body = `__ketnoi_call:${record.id}`;
+    const [existing] = await database.select().from(mobileMessages).where(and(eq(mobileMessages.senderId, record.callerId), eq(mobileMessages.recipientId, record.calleeId), eq(mobileMessages.body, body))).limit(1);
+    if (existing) return toMobileMessage(existing);
+    const status = record.status === "missed" || record.status === "declined" || record.status === "ended" ? record.status : "ended";
+    const callEvent: ChatCallEvent = { callId: record.id, kind: record.kind, status, durationSeconds: record.durationSeconds };
+    const inserted = await database.insert(mobileMessages).values({ senderId: record.callerId, recipientId: record.calleeId, body, mediaPayload: JSON.stringify({ media: null, mediaItems: [], callEvent }), deliveredAt: onlineSockets.get(record.calleeId)?.size ? new Date() : null });
+    const messageId = Number((inserted as any).insertId ?? (inserted as any)[0]?.insertId);
+    const [stored] = await database.select().from(mobileMessages).where(eq(mobileMessages.id, messageId)).limit(1);
+    if (!stored) throw new Error("Không thể lưu mục lịch sử cuộc gọi trong chat.");
+    const message = toMobileMessage(stored);
+    io.to(`mobile-user:${record.callerId}`).emit("chat:new", message);
+    io.to(`mobile-user:${record.calleeId}`).emit("chat:new", message);
     return message;
   };
 
@@ -656,7 +680,8 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     const database = await requireDb();
     const [record] = await database.select().from(callRecords).where(eq(callRecords.id, callId)).limit(1);
     if (!record || record.calleeId !== user.id) throw new Error("Không tìm thấy cuộc gọi đến.");
-    await finishCall(callId, "declined");
+    const finished = await finishCall(callId, "declined");
+    if (finished.finalized && finished.record) await saveCallHistoryMessage(finished.record);
     io.to(`mobile-user:${record.callerId}`).emit("call:hangup", { fromUserId: user.id, callId, reason: "declined" });
     res.status(204).end();
   }));
@@ -713,13 +738,15 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
         } else if (event === "call:answer") {
           await markCallAnswered(callId);
         } else if (event === "call:hangup") {
-          await finishCall(callId, payload.reason === "declined" || payload.reason === "missed" ? payload.reason : "ended");
+          const finished = await finishCall(callId, payload.reason === "declined" || payload.reason === "missed" ? payload.reason : "ended");
+          if (finished.finalized && finished.record) await saveCallHistoryMessage(finished.record);
         }
         const targetSockets = onlineSockets.get(peerId);
         if (!targetSockets?.size && event === "call:offer") {
           const delivered = await sendIncomingCallPush(peerId, user, callId, Boolean(payload.withVideo));
           if (!delivered) {
-            await finishCall(callId, "missed");
+            const finished = await finishCall(callId, "missed");
+            if (finished.finalized && finished.record) await saveCallHistoryMessage(finished.record);
             socket.emit("call:hangup", { fromUserId: peerId, callId, reason: "missed" });
           }
           return;

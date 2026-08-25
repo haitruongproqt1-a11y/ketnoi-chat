@@ -71,3 +71,7 @@
 - [x] Kiểm tra WebRTC, chia sẻ màn hình, TURN và thông báo/cuộc gọi đến.
 - [x] Khắc phục riêng các lỗi được kiểm thử xác minh.
 - [x] Xác minh cấu hình Android và lưu phiên bản ổn định để tạo APK Development Build.
+- [x] Khoanh vùng lỗi Invalid time value ở trang Lịch sử gọi.
+- [x] Bảo đảm cuộc gọi đã kết thúc được lưu/hiển thị trong đoạn chat.
+- [x] Chuẩn hóa hiển thị lịch sử gọi thoại và gọi video.
+- [x] Kiểm thử hồi quy cuộc gọi, mục chat và trang Lịch sử gọi.
