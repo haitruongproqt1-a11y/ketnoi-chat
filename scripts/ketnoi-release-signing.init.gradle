@@ -1,0 +1,37 @@
+def required = [
+  "KETNOI_RELEASE_STORE_FILE",
+  "KETNOI_RELEASE_STORE_PASSWORD",
+  "KETNOI_RELEASE_KEY_ALIAS",
+  "KETNOI_RELEASE_KEY_PASSWORD",
+]
+
+def missing = required.findAll { !System.getenv(it) }
+if (!missing.isEmpty()) {
+  throw new GradleException("Missing Android release-signing environment variable(s): ${missing.join(', ')}")
+}
+
+allprojects { project ->
+  project.afterEvaluate {
+    if (!project.plugins.hasPlugin("com.android.application")) return
+
+    def androidExtension = project.extensions.findByName("android")
+    if (androidExtension == null) {
+      throw new GradleException("Android application extension was not found for ${project.path}")
+    }
+
+    def signing = androidExtension.signingConfigs.findByName("ketnoiRelease")
+    if (signing == null) {
+      signing = androidExtension.signingConfigs.create("ketnoiRelease")
+    }
+    signing.storeFile = project.file(System.getenv("KETNOI_RELEASE_STORE_FILE"))
+    signing.storePassword = System.getenv("KETNOI_RELEASE_STORE_PASSWORD")
+    signing.keyAlias = System.getenv("KETNOI_RELEASE_KEY_ALIAS")
+    signing.keyPassword = System.getenv("KETNOI_RELEASE_KEY_PASSWORD")
+
+    def releaseBuild = androidExtension.buildTypes.findByName("release")
+    if (releaseBuild == null) {
+      throw new GradleException("Android release build type was not found for ${project.path}")
+    }
+    releaseBuild.signingConfig = signing
+  }
+}
