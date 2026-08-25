@@ -46,8 +46,9 @@ const config: ExpoConfig = {
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
-  // CallKeep 4.x dùng legacy bridge; tắt New Architecture để tránh native startup crash trên Android.
-  newArchEnabled: false,
+  // React Native Reanimated 4 của Expo SDK 54 yêu cầu New Architecture khi build Android.
+  // CallKeep tiếp tục chạy qua lớp tương thích native của React Native 0.81.
+  newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
