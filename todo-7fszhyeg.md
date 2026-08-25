@@ -24,3 +24,7 @@
 - [x] Rà soát CallKeep, quyền Telecom và khởi tạo native để loại bỏ lỗi startup.
 - [x] Bổ sung lớp bảo vệ khởi tạo native và kiểm thử hồi quy khởi động.
 - [x] Xác minh bản sửa và hướng dẫn cài lại APK sạch.
+- [x] Thu thập và phân tích lỗi Gradle của Android APK build.
+- [x] Rà soát plugin Android, manifest và phụ thuộc CallKeep/WebRTC có thể gây lỗi build.
+- [x] Sửa cấu hình native gây lỗi Gradle và xác minh Android prebuild.
+- [x] Lưu bản sửa và hướng dẫn tạo APK lại.

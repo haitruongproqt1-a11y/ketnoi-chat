@@ -19,3 +19,8 @@ APK Kết Nối bị Android buộc đóng ngay khi khởi chạy. Đây là cra
 - Đã tắt New Architecture trong Expo config cho APK phát triển hiện tại, đưa CallKeep về legacy bridge tương thích hơn.
 - Khởi tạo CallKeep hiện kiểm tra ConnectionService, bắt mọi native exception và chỉ đăng ký listener/hệ thống sau khi setup thành công.
 - Mọi thao tác CallKeep sau đó đều có guard `initialized`, do đó ứng dụng vẫn mở và gọi WebRTC nội bộ được nếu ConnectionService không khả dụng.
+
+## Phát hiện Gradle APK
+
+- `react-native-callkeep` 4.3.16 có Android library Gradle file cũ không khai báo `namespace`, trong khi Android Gradle Plugin 8+ của Expo SDK 54 yêu cầu trường này.
+- Đã thêm config plugin chạy trong EAS prebuild để chèn `namespace "io.wazo.callkeep"` vào library CallKeep trước giai đoạn Gradle. Bản vá tồn tại trong mã dự án nên không phụ thuộc vào việc sửa thủ công node_modules.
