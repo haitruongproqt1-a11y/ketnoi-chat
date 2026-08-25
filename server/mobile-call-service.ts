@@ -16,6 +16,7 @@ import {
   type FriendRequestRecord,
   type MobileUserRecord,
 } from "../drizzle/schema";
+import { isSecretQuestionId, normalizeSecretAnswer, SECRET_QUESTIONS } from "../lib/auth-utils";
 import { getDb } from "./db";
 import { ENV } from "./_core/env";
 
@@ -140,6 +141,16 @@ async function getMobileUserByUsername(username: string) {
   const database = await requireDb();
   const [user] = await database.select().from(mobileUsers).where(eq(mobileUsers.username, username)).limit(1);
   return user ?? null;
+}
+
+async function getMobileUserByEmail(email: string) {
+  const database = await requireDb();
+  const [user] = await database.select().from(mobileUsers).where(eq(mobileUsers.email, email)).limit(1);
+  return user ?? null;
+}
+
+function validEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
 async function relationshipBetween(userId: number, peerId: number) {
@@ -307,16 +318,20 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
   app.post("/api/auth/register", async (req, res) => {
     try {
       const username = safeText(req.body?.username, 64).toLowerCase();
-      const displayName = safeText(req.body?.displayName, 120);
       const password = typeof req.body?.password === "string" ? req.body.password : "";
-      const email = safeText(req.body?.email, 320) || null;
+      const email = safeText(req.body?.email, 320).toLowerCase();
+      const secretQuestion = safeText(req.body?.secretQuestion, 64);
+      const secretAnswer = normalizeSecretAnswer(safeText(req.body?.secretAnswer, 160));
       if (!/^[a-z0-9_]{3,64}$/.test(username)) throw new Error("Username cần 3–64 ký tự gồm chữ thường, số hoặc dấu gạch dưới.");
-      if (displayName.length < 2) throw new Error("Tên hiển thị cần có ít nhất 2 ký tự.");
       if (password.length < 8) throw new Error("Mật khẩu cần có ít nhất 8 ký tự.");
+      if (!validEmail(email)) throw new Error("Email chưa hợp lệ.");
+      if (!isSecretQuestionId(secretQuestion)) throw new Error("Câu hỏi bí mật không hợp lệ.");
+      if (secretAnswer.length < 2) throw new Error("Câu trả lời bí mật cần có ít nhất 2 ký tự.");
       if (await getMobileUserByUsername(username)) throw new Error("Username này đã được sử dụng.");
+      if (await getMobileUserByEmail(email)) throw new Error("Email này đã được sử dụng.");
       const database = await requireDb();
-      const passwordHash = await hashPassword(password);
-      const inserted = await database.insert(mobileUsers).values({ username, displayName, passwordHash, email });
+      const [passwordHash, secretAnswerHash] = await Promise.all([hashPassword(password), hashPassword(secretAnswer)]);
+      const inserted = await database.insert(mobileUsers).values({ username, displayName: username, passwordHash, email, secretQuestion, secretAnswerHash });
       const insertId = Number((inserted as any).insertId ?? (inserted as any)[0]?.insertId);
       const user = await getMobileUser(insertId);
       if (!user) throw new Error("Không thể tạo tài khoản.");
@@ -335,6 +350,35 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
       res.json({ token: await issueSession(user), user: toMobileUser(user) });
     } catch (error) {
       res.status(401).json({ message: asErrorMessage(error) });
+    }
+  });
+
+  app.post("/api/auth/recovery-question", async (req, res) => {
+    try {
+      const username = safeText(req.body?.username, 64).toLowerCase();
+      const user = await getMobileUserByUsername(username);
+      if (!user || !isSecretQuestionId(user.secretQuestion)) throw new Error("Không tìm thấy tài khoản có câu hỏi bí mật.");
+      const question = SECRET_QUESTIONS.find((item) => item.id === user.secretQuestion);
+      if (!question) throw new Error("Không tìm thấy tài khoản có câu hỏi bí mật.");
+      res.json({ question: question.label });
+    } catch (error) {
+      res.status(404).json({ message: asErrorMessage(error) });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req, res) => {
+    try {
+      const username = safeText(req.body?.username, 64).toLowerCase();
+      const secretAnswer = normalizeSecretAnswer(safeText(req.body?.secretAnswer, 160));
+      const newPassword = typeof req.body?.newPassword === "string" ? req.body.newPassword : "";
+      if (newPassword.length < 8) throw new Error("Mật khẩu cần có ít nhất 8 ký tự.");
+      const user = await getMobileUserByUsername(username);
+      if (!user || !(await verifyPassword(secretAnswer, user.secretAnswerHash))) throw new Error("Câu trả lời bí mật không đúng.");
+      const database = await requireDb();
+      await database.update(mobileUsers).set({ passwordHash: await hashPassword(newPassword) }).where(eq(mobileUsers.id, user.id));
+      res.status(204).end();
+    } catch (error) {
+      res.status(400).json({ message: asErrorMessage(error) });
     }
   });
 

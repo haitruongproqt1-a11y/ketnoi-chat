@@ -34,11 +34,14 @@ export const mobileUsers = mysqlTable("mobile_users", {
   username: varchar("username", { length: 64 }).notNull(),
   displayName: varchar("display_name", { length: 120 }).notNull(),
   passwordHash: varchar("password_hash", { length: 255 }).notNull(),
-  email: varchar("email", { length: 320 }),
+  email: varchar("email", { length: 320 }).notNull(),
+  secretQuestion: varchar("secret_question", { length: 64 }).notNull(),
+  secretAnswerHash: varchar("secret_answer_hash", { length: 255 }).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 }, (table) => [
   uniqueIndex("mobile_users_username_unique").on(table.username),
+  uniqueIndex("mobile_users_email_unique").on(table.email),
   index("mobile_users_display_name_index").on(table.displayName),
 ]);
 

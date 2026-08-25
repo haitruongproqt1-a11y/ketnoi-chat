@@ -36,3 +36,13 @@
 - [x] Rà soát phiên lưu cục bộ, logout và client API đăng nhập.
 - [x] Sửa riêng luồng xóa phiên và đăng nhập lại.
 - [x] Kiểm thử đăng nhập lại end-to-end trên backend công khai.
+- [x] Hủy cấu hình gửi OTP email theo yêu cầu mới.
+- [x] Đổi đăng ký thành ba trường: tên đăng nhập, mật khẩu và email.
+- [x] Hủy API yêu cầu/xác minh OTP và đặt lại mật khẩu qua email theo yêu cầu mới.
+- [x] Hủy luồng Quên mật khẩu bằng OTP email theo yêu cầu mới.
+- [x] Xóa dữ liệu tài khoản cũ và dữ liệu phụ thuộc theo yêu cầu.
+- [x] Hủy kiểm thử đặt lại mật khẩu bằng OTP email theo yêu cầu mới.
+- [x] Thiết kế câu hỏi bí mật và câu trả lời được băm an toàn khi đăng ký.
+- [x] Bổ sung API lấy câu hỏi bí mật và đặt lại mật khẩu bằng tên đăng nhập.
+- [x] Thêm luồng Quên mật khẩu bằng câu hỏi bí mật trên màn hình xác thực.
+- [x] Kiểm thử đăng ký, đăng nhập và đặt lại mật khẩu bằng câu hỏi bí mật.

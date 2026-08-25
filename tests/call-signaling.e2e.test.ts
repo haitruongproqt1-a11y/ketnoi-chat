@@ -22,7 +22,7 @@ async function register(label: string) {
   const suffix = `${label}${Date.now()}${Math.random().toString(36).slice(2, 7)}`.toLowerCase();
   return request<AuthPayload>("/api/auth/register", {
     method: "POST",
-    body: JSON.stringify({ username: suffix, displayName: `Kiểm thử ${label}`, password: "ketnoi-test-password" }),
+    body: JSON.stringify({ username: suffix, password: "ketnoi-test-password", email: `${suffix}@example.test`, secretQuestion: "favorite_color", secretAnswer: "xanh dương" }),
   });
 }
 

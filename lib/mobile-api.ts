@@ -15,6 +15,7 @@ export const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL ?? API_URL;
 
 export type MobileUser = { id: number; username: string; displayName: string; email: string | null; avatarUrl: string | null; createdAt: string };
 export type AuthPayload = { token: string; user: MobileUser };
+export type PasswordRecoveryQuestion = { question: string };
 export type ChatMedia = { url: string; kind: "image" | "video" | "file"; name: string; mimeType: string; size: number; thumbnailUrl: string | null; caption?: string | null };
 export type ChatCallEvent = { callId: string; kind: "audio" | "video"; status: "missed" | "answered" | "declined" | "ended"; durationSeconds: number };
 export type MobileMessage = { id: number; senderId: number; recipientId: number; body: string; createdAt: string; deliveredAt: string | null; readAt: string | null; media: ChatMedia | null; mediaItems?: ChatMedia[]; mediaRevokedAt: string | null; callEvent?: ChatCallEvent | null };
@@ -39,7 +40,9 @@ async function request<T>(path: string, options: RequestInit = {}, token?: strin
 
 export const mobileApi = {
   login: (username: string, password: string) => request<AuthPayload>("/api/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }),
-  register: (username: string, displayName: string, password: string, email?: string) => request<AuthPayload>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, displayName, password, email }) }),
+  register: (username: string, password: string, email: string, secretQuestion: string, secretAnswer: string) => request<AuthPayload>("/api/auth/register", { method: "POST", body: JSON.stringify({ username, password, email, secretQuestion, secretAnswer }) }),
+  passwordRecoveryQuestion: (username: string) => request<PasswordRecoveryQuestion>("/api/auth/recovery-question", { method: "POST", body: JSON.stringify({ username }) }),
+  resetPassword: (username: string, secretAnswer: string, newPassword: string) => request<void>("/api/auth/reset-password", { method: "POST", body: JSON.stringify({ username, secretAnswer, newPassword }) }),
   updateProfile: (token: string, changes: Partial<Pick<MobileUser, "displayName" | "avatarUrl">>) => request<MobileUser>("/api/me", { method: "PUT", body: JSON.stringify(changes) }, token),
   friends: (token: string) => request<MobileUser[]>("/api/friends", {}, token),
   conversations: (token: string) => request<ConversationSummary[]>("/api/conversations", {}, token),
