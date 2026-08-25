@@ -510,15 +510,18 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     ]);
     const latestByPeer = new Map<number, MobileMessageRecord>();
     const unreadByPeer = new Map<number, number>();
+    const preferenceByPeer = new Map(preferences.map((preference) => [preference.peerId, preference]));
     for (const record of records) {
       const peerId = record.senderId === user.id ? record.recipientId : record.senderId;
+      const preference = preferenceByPeer.get(peerId);
+      const removedForUser = record.senderId === user.id ? record.deletedForSenderAt : record.deletedForRecipientAt;
+      if (removedForUser || (preference?.clearedAt && record.createdAt <= preference.clearedAt)) continue;
       if (!latestByPeer.has(peerId)) latestByPeer.set(peerId, record);
       if (record.recipientId === user.id && !record.readAt) unreadByPeer.set(peerId, (unreadByPeer.get(peerId) ?? 0) + 1);
     }
     const peerIds = [...latestByPeer.keys()];
     const peers = peerIds.length ? await database.select().from(mobileUsers).where(inArray(mobileUsers.id, peerIds)) : [];
     const peerById = new Map(peers.map((peer) => [peer.id, peer]));
-    const preferenceByPeer = new Map(preferences.map((preference) => [preference.peerId, preference]));
     const result = peerIds.flatMap((peerId) => {
       const peer = peerById.get(peerId);
       const latest = latestByPeer.get(peerId);
@@ -543,6 +546,18 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     res.json({ peer: peer ? toMobileUser(peer) : null, lastMessage: null, unreadCount: 0, pinned: Boolean(preference?.pinned), archived: Boolean(preference?.archived), muted: Boolean(preference?.muted) });
   }));
 
+  app.post("/api/conversations/:peerId/clear", protectedRoute(async (req, res, user) => {
+    const peerId = parsePeerId(req.params.peerId);
+    if (await relationshipBetween(user.id, peerId) !== "friends") throw new Error("Bạn chỉ có thể làm mới hội thoại với bạn bè đã xác nhận.");
+    const database = await requireDb();
+    const [existing] = await database.select().from(mobileConversationPreferences).where(and(eq(mobileConversationPreferences.userId, user.id), eq(mobileConversationPreferences.peerId, peerId))).limit(1);
+    const clearedAt = new Date();
+    const values = { userId: user.id, peerId, pinned: existing?.pinned ?? 0, archived: existing?.archived ?? 0, muted: existing?.muted ?? 0, hidden: existing?.hidden ?? 0, clearedAt, updatedAt: clearedAt };
+    await database.insert(mobileConversationPreferences).values(values).onDuplicateKeyUpdate({ set: values });
+    io.to(`mobile-user:${user.id}`).emit("chat:cleared", { peerId, clearedAt: clearedAt.toISOString() });
+    res.status(204).end();
+  }));
+
   app.post("/api/media", upload.single("file"), protectedRoute(async (req, res, user) => {
     const file = req.file;
     if (!file?.buffer?.length) throw new Error("Không nhận được tệp để tải lên.");
@@ -561,8 +576,12 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     const peerId = parsePeerId(req.params.peerId);
     if (await relationshipBetween(user.id, peerId) !== "friends") throw new Error("Bạn chỉ có thể xem tin nhắn với bạn bè đã xác nhận.");
     const database = await requireDb();
-    const records = await database.select().from(mobileMessages).where(or(and(eq(mobileMessages.senderId, user.id), eq(mobileMessages.recipientId, peerId)), and(eq(mobileMessages.senderId, peerId), eq(mobileMessages.recipientId, user.id)))).orderBy(asc(mobileMessages.createdAt)).limit(500);
-    res.json(records.map(toMobileMessage));
+    const [records, preferences] = await Promise.all([
+      database.select().from(mobileMessages).where(or(and(eq(mobileMessages.senderId, user.id), eq(mobileMessages.recipientId, peerId)), and(eq(mobileMessages.senderId, peerId), eq(mobileMessages.recipientId, user.id)))).orderBy(asc(mobileMessages.createdAt)).limit(500),
+      database.select().from(mobileConversationPreferences).where(and(eq(mobileConversationPreferences.userId, user.id), eq(mobileConversationPreferences.peerId, peerId))).limit(1),
+    ]);
+    const clearedAt = preferences[0]?.clearedAt;
+    res.json(records.filter((record) => !(record.senderId === user.id ? record.deletedForSenderAt : record.deletedForRecipientAt) && (!clearedAt || record.createdAt > clearedAt)).map(toMobileMessage));
   }));
 
   app.post("/api/messages/:peerId", protectedRoute(async (req, res, user) => {
@@ -581,6 +600,35 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
       io.to(`mobile-user:${peerId}`).emit("chat:read", { readerId: user.id, peerId, messageIds, readAt: readAt.toISOString() });
     }
     res.status(204).end();
+  }));
+
+  app.delete("/api/messages/:messageId", protectedRoute(async (req, res, user) => {
+    const messageId = parsePeerId(req.params.messageId);
+    const database = await requireDb();
+    const [message] = await database.select().from(mobileMessages).where(eq(mobileMessages.id, messageId)).limit(1);
+    if (!message || (message.senderId !== user.id && message.recipientId !== user.id)) throw new Error("Không tìm thấy tin nhắn để xóa.");
+    const deletedAt = new Date();
+    const deletedForSenderAt = message.senderId === user.id ? deletedAt : message.deletedForSenderAt;
+    const deletedForRecipientAt = message.recipientId === user.id ? deletedAt : message.deletedForRecipientAt;
+    await database.update(mobileMessages).set({ deletedForSenderAt, deletedForRecipientAt }).where(eq(mobileMessages.id, message.id));
+    io.to(`mobile-user:${user.id}`).emit("chat:deleted", { messageId: message.id, peerId: message.senderId === user.id ? message.recipientId : message.senderId });
+    res.status(204).end();
+  }));
+
+  app.post("/api/messages/:messageId/recall", protectedRoute(async (req, res, user) => {
+    const messageId = parsePeerId(req.params.messageId);
+    const database = await requireDb();
+    const [message] = await database.select().from(mobileMessages).where(eq(mobileMessages.id, messageId)).limit(1);
+    if (!message || message.senderId !== user.id) throw new Error("Bạn chỉ có thể thu hồi tin nhắn do mình gửi.");
+    if (Date.now() - message.createdAt.getTime() > 15 * 60 * 1000) throw new Error("Tin nhắn chỉ có thể thu hồi trong 15 phút.");
+    const recalledAt = new Date();
+    await database.update(mobileMessages).set({ body: "Tin nhắn đã được thu hồi", mediaPayload: null, mediaRevokedAt: recalledAt }).where(eq(mobileMessages.id, message.id));
+    const [recalled] = await database.select().from(mobileMessages).where(eq(mobileMessages.id, message.id)).limit(1);
+    if (!recalled) throw new Error("Không thể thu hồi tin nhắn.");
+    const payload = toMobileMessage(recalled);
+    io.to(`mobile-user:${message.senderId}`).emit("chat:recalled", payload);
+    io.to(`mobile-user:${message.recipientId}`).emit("chat:recalled", payload);
+    res.json(payload);
   }));
 
   app.get("/api/calls", protectedRoute(async (req, res, user) => {

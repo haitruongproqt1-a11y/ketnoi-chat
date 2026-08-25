@@ -58,3 +58,8 @@
 - [x] Khoanh vùng và sửa lỗi gửi/hiển thị nội dung tin nhắn trong đoạn chat.
 - [x] Khoanh vùng và sửa lỗi tải lên/gửi ảnh và tệp trong chat.
 - [x] Kiểm thử hồi quy chat, media, tìm người dùng và lời mời kết bạn.
+- [x] Rà soát media viewer, phản hồi nhận chat/lời mời và hành vi lịch sử hội thoại.
+- [x] Cho phép chạm ảnh để xem toàn màn hình và đóng an toàn.
+- [x] Thêm âm thanh/rung nhẹ khi nhận tin nhắn hoặc lời mời kết bạn.
+- [x] Thêm xóa tin nhắn, thu hồi tin nhắn và làm mới hội thoại không giữ lịch sử cũ.
+- [x] Kiểm thử hồi quy media, thông báo và quản lý lịch sử chat.

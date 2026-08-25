@@ -47,6 +47,7 @@ export const mobileApi = {
   friends: (token: string) => request<MobileUser[]>("/api/friends", {}, token),
   conversations: (token: string) => request<ConversationSummary[]>("/api/conversations", {}, token),
   updateConversation: (token: string, peerId: number, changes: Partial<{ pinned: boolean; archived: boolean; muted: boolean; hidden: boolean }>) => request<ConversationSummary>(`/api/conversations/${peerId}`, { method: "PATCH", body: JSON.stringify(changes) }, token),
+  clearConversation: (token: string, peerId: number) => request<void>(`/api/conversations/${peerId}/clear`, { method: "POST" }, token),
   searchUsers: (token: string, query: string) => request<UserSearchResult[]>(`/api/users/search?q=${encodeURIComponent(query)}`, {}, token),
   friendRequests: (token: string, direction: "incoming" | "outgoing" = "incoming") => request<FriendRequest[]>(`/api/friend-requests?direction=${direction}`, {}, token),
   sendFriendRequest: (token: string, recipientId: number) => request<FriendRequest>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId }) }, token),
@@ -56,6 +57,8 @@ export const mobileApi = {
   markMessagesRead: (token: string, peerId: number) => request<void>(`/api/messages/${peerId}/read`, { method: "POST" }, token),
   unreadCounts: (token: string) => request<Array<{ senderId: number; count: number }>>("/api/messages/unread-counts", {}, token),
   markAllMessagesRead: (token: string) => request<void>("/api/messages/read-all", { method: "POST" }, token),
+  deleteMessage: (token: string, messageId: number) => request<void>(`/api/messages/${messageId}`, { method: "DELETE" }, token),
+  recallMessage: (token: string, messageId: number) => request<MobileMessage>(`/api/messages/${messageId}/recall`, { method: "POST" }, token),
   mediaUrl: (path: string) => path.startsWith("http") ? path : `${API_URL}${path}`,
   uploadMedia: async (token: string, asset: { uri: string; name: string; mimeType: string; size: number }, onProgress?: (progress: number) => void, onCancelReady?: (cancel: () => void) => void) => {
     if (Platform.OS !== "web") {

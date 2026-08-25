@@ -3,7 +3,7 @@ import { io, type Socket } from "socket.io-client";
 
 import { mobileApi, SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
-import { playIncomingMessageTone } from "./sound-feedback";
+import { playFriendRequestFeedback, playIncomingMessageTone } from "./sound-feedback";
 
 type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share" | "call:error";
 type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string; isScreenSharing?: boolean; message?: string };
@@ -11,6 +11,8 @@ type ChatTyping = { fromUserId: number; isTyping: boolean };
 type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type ChatDeliveryReceipt = { recipientId: number; messageIds: number[]; deliveredAt: string };
 type ChatMediaRecall = { messageId: number; revokedAt: string };
+type ChatDeleted = { messageId: number; peerId: number };
+type ChatCleared = { peerId: number; clearedAt: string };
 type SocketContextValue = {
   socket: Socket | null;
   onlineIds: number[];
@@ -19,6 +21,9 @@ type SocketContextValue = {
   lastReadReceipt: ChatReadReceipt | null;
   lastDeliveryReceipt: ChatDeliveryReceipt | null;
   lastMediaRecall: ChatMediaRecall | null;
+  lastMessageRecall: MobileMessage | null;
+  lastDeletedMessage: ChatDeleted | null;
+  lastClearedConversation: ChatCleared | null;
   pendingFriendRequestCount: number;
   refreshPendingFriendRequestCount: () => Promise<void>;
   incomingOffer: CallSignal | null;
@@ -42,6 +47,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [lastReadReceipt, setLastReadReceipt] = useState<ChatReadReceipt | null>(null);
   const [lastDeliveryReceipt, setLastDeliveryReceipt] = useState<ChatDeliveryReceipt | null>(null);
   const [lastMediaRecall, setLastMediaRecall] = useState<ChatMediaRecall | null>(null);
+  const [lastMessageRecall, setLastMessageRecall] = useState<MobileMessage | null>(null);
+  const [lastDeletedMessage, setLastDeletedMessage] = useState<ChatDeleted | null>(null);
+  const [lastClearedConversation, setLastClearedConversation] = useState<ChatCleared | null>(null);
   const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
   const [incomingOffer, setIncomingOffer] = useState<CallSignal | null>(null);
   const [latestSignal, setLatestSignal] = useState<SocketContextValue["latestSignal"]>(null);
@@ -57,7 +65,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   useEffect(() => {
-    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); setPendingFriendRequestCount(0); return; }
+    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); setLastMessageRecall(null); setLastDeletedMessage(null); setLastClearedConversation(null); setPendingFriendRequestCount(0); return; }
     void refreshPendingFriendRequestCount();
     const instance = io(SOCKET_URL, { auth: { token }, transports: ["websocket", "polling"] });
     socketRef.current = instance;
@@ -69,7 +77,10 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     instance.on("chat:read", (payload: ChatReadReceipt) => setLastReadReceipt(payload));
     instance.on("chat:delivered", (payload: ChatDeliveryReceipt) => setLastDeliveryReceipt(payload));
     instance.on("chat:media-recalled", (payload: ChatMediaRecall) => setLastMediaRecall(payload));
-    instance.on("friend:request", () => setPendingFriendRequestCount((count) => count + 1));
+    instance.on("chat:recalled", (message: MobileMessage) => setLastMessageRecall(message));
+    instance.on("chat:deleted", (payload: ChatDeleted) => setLastDeletedMessage(payload));
+    instance.on("chat:cleared", (payload: ChatCleared) => setLastClearedConversation(payload));
+    instance.on("friend:request", () => { playFriendRequestFeedback(); setPendingFriendRequestCount((count) => count + 1); });
     const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup", "call:screen-share", "call:error"];
     signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
       if (event === "call:offer") setIncomingOffer(payload);
@@ -86,6 +97,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     lastReadReceipt,
     lastDeliveryReceipt,
     lastMediaRecall,
+    lastMessageRecall,
+    lastDeletedMessage,
+    lastClearedConversation,
     pendingFriendRequestCount,
     refreshPendingFriendRequestCount,
     incomingOffer,
@@ -116,7 +130,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     sendSignal: (event, payload) => socketRef.current?.emit(event, payload),
     clearSignal: () => setLatestSignal(null),
     clearIncomingOffer: () => setIncomingOffer(null),
-  }), [incomingOffer, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastReadReceipt, lastTyping, latestSignal, onlineIds, pendingFriendRequestCount, refreshPendingFriendRequestCount, socket, token]);
+  }), [incomingOffer, lastClearedConversation, lastDeletedMessage, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastMessageRecall, lastReadReceipt, lastTyping, latestSignal, onlineIds, pendingFriendRequestCount, refreshPendingFriendRequestCount, socket, token]);
   return <SocketContext.Provider value={value}>{children}</SocketContext.Provider>;
 }
 

@@ -68,6 +68,8 @@ export const mobileMessages = mysqlTable("mobile_messages", {
   deliveredAt: timestamp("delivered_at"),
   readAt: timestamp("read_at"),
   mediaRevokedAt: timestamp("media_revoked_at"),
+  deletedForSenderAt: timestamp("deleted_for_sender_at"),
+  deletedForRecipientAt: timestamp("deleted_for_recipient_at"),
 }, (table) => [
   index("mobile_messages_sender_created_index").on(table.senderId, table.createdAt),
   index("mobile_messages_recipient_created_index").on(table.recipientId, table.createdAt),
@@ -82,6 +84,7 @@ export const mobileConversationPreferences = mysqlTable("mobile_conversation_pre
   archived: int("archived").default(0).notNull(),
   muted: int("muted").default(0).notNull(),
   hidden: int("hidden").default(0).notNull(),
+  clearedAt: timestamp("cleared_at"),
   updatedAt: timestamp("updated_at").defaultNow().onUpdateNow().notNull(),
 }, (table) => [
   uniqueIndex("mobile_conversation_preferences_user_peer_unique").on(table.userId, table.peerId),

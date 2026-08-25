@@ -42,8 +42,24 @@ describe.skipIf(!shouldRun)("chat persistence", () => {
     const mediaMessage = await request<{ id: number; media: { url: string; name: string } }>(`/api/messages/${recipient.user.id}`, { method: "POST", body: JSON.stringify({ body: "Tệp kiểm thử", media }) }, sender.token);
     expect(mediaMessage.media).toMatchObject({ url: media.url, name: "kiem-thu.txt" });
 
+    const recalled = await request<{ id: number; body: string; media: null }>(`/api/messages/${message.id}/recall`, { method: "POST" }, sender.token);
+    expect(recalled).toMatchObject({ id: message.id, body: "Tin nhắn đã được thu hồi", media: null });
+    const historyAfterRecall = await request<Array<{ id: number; body: string }>>(`/api/messages/${sender.user.id}`, {}, recipient.token);
+    expect(historyAfterRecall).toEqual(expect.arrayContaining([expect.objectContaining({ id: message.id, body: "Tin nhắn đã được thu hồi" })]));
+
+    await request(`/api/messages/${mediaMessage.id}`, { method: "DELETE" }, recipient.token);
+    const recipientHistoryAfterDelete = await request<Array<{ id: number }>>(`/api/messages/${sender.user.id}`, {}, recipient.token);
+    expect(recipientHistoryAfterDelete.some((item) => item.id === mediaMessage.id)).toBe(false);
+
     const conversations = await request<Array<{ peer: { id: number }; lastMessage: { id: number } }>>("/api/conversations", {}, sender.token);
     expect(conversations).toEqual(expect.arrayContaining([expect.objectContaining({ peer: expect.objectContaining({ id: recipient.user.id }), lastMessage: expect.objectContaining({ id: mediaMessage.id }) })]));
+
+    await request(`/api/conversations/${recipient.user.id}/clear`, { method: "POST" }, sender.token);
+    const historyAfterClear = await request<Array<{ id: number }>>(`/api/messages/${recipient.user.id}`, {}, sender.token);
+    expect(historyAfterClear).toEqual([]);
+    const newMessage = await request<{ id: number }>(`/api/messages/${sender.user.id}`, { method: "POST", body: JSON.stringify({ body: "Tin nhắn sau khi làm mới" }) }, recipient.token);
+    const historyWithNewMessage = await request<Array<{ id: number }>>(`/api/messages/${recipient.user.id}`, {}, sender.token);
+    expect(historyWithNewMessage).toEqual([expect.objectContaining({ id: newMessage.id })]);
 
     await request(`/api/messages/${sender.user.id}/read`, { method: "POST" }, recipient.token);
   });
