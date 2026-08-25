@@ -16,6 +16,23 @@ on:
         required: false
         default: false
         type: boolean
+      publish_release_from_run:
+        description: "Tạo GitHub Release từ artifact APK của một workflow run thành công"
+        required: false
+        default: false
+        type: boolean
+      release_tag:
+        description: "Tag GitHub Release cần tạo, ví dụ v1.0.2"
+        required: false
+        type: string
+      artifact_run_id:
+        description: "ID workflow run chứa signed APK artifact"
+        required: false
+        type: string
+      artifact_name:
+        description: "Tên signed APK artifact cần phát hành"
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -61,6 +78,51 @@ jobs:
           printf '%s' "$KEY_ALIAS" | GH_TOKEN="$ACTIONS_SECRETS_TOKEN" gh secret set KETNOI_RELEASE_KEY_ALIAS --repo "$REPOSITORY"
           FINGERPRINT="$(keytool -list -v -keystore "$WORKDIR/ketnoi-release.p12" -storetype PKCS12 -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | awk -F': ' '/SHA256:/{print $2; exit}')"
           printf 'Release keystore stored. SHA-256 certificate fingerprint: %s\n' "$FINGERPRINT"
+
+  publish-release-from-artifact:
+    name: Publish signed APK to GitHub Release
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_release_from_run }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      ARTIFACT_RUN_ID: ${{ inputs.artifact_run_id }}
+      ARTIFACT_NAME: ${{ inputs.artifact_name }}
+
+    steps:
+      - name: Validate publishing inputs
+        run: |
+          set -euo pipefail
+          test -n "$RELEASE_TAG"
+          test -n "$ARTIFACT_RUN_ID"
+          test -n "$ARTIFACT_NAME"
+          if gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $RELEASE_TAG already exists." >&2
+            exit 1
+          fi
+
+      - name: Download signed APK artifact
+        run: |
+          set -euo pipefail
+          mkdir -p release-artifact
+          gh run download "$ARTIFACT_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir release-artifact
+          APK="$(find release-artifact -type f -name '*.apk' -print -quit)"
+          test -n "$APK"
+          mv "$APK" release-artifact/app-release.apk
+          sha256sum release-artifact/app-release.apk
+
+      - name: Create GitHub Release with APK asset
+        run: |
+          set -euo pipefail
+          gh release create "$RELEASE_TAG" release-artifact/app-release.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "Kết Nối ${RELEASE_TAG} — APK release đã ký" \
+            --notes "APK Android release đã ký và xác minh từ GitHub Actions run ${ARTIFACT_RUN_ID}."
 
   build-signed-release-apk:
     name: Build signed Android release APK
