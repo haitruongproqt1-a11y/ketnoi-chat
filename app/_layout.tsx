@@ -17,11 +17,13 @@ import {
 import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
-import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
+import {
+  initManusRuntime,
+  subscribeSafeAreaInsets,
+} from "@/lib/_core/manus-runtime";
 import { AuthProvider } from "@/lib/auth-context";
 import { SocketProvider, useMobileSocket } from "@/lib/socket-context";
 import { NotificationBridge } from "@/lib/notification-bridge";
-import { CallKeepBridge } from "@/components/callkeep-bridge";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -71,7 +73,10 @@ export default function RootLayout() {
 
   // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
-    const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
+    const metrics = initialWindowMetrics ?? {
+      insets: initialInsets,
+      frame: initialFrame,
+    };
     return {
       ...metrics,
       insets: {
@@ -90,10 +95,9 @@ export default function RootLayout() {
           {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
           {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
           <AuthProvider>
-              <SocketProvider>
-                <IncomingCallNavigator />
-                <CallKeepBridge />
-                <NotificationBridge />
+            <SocketProvider>
+              <IncomingCallNavigator />
+              <NotificationBridge />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="index" />
                 <Stack.Screen name="auth" />
@@ -128,7 +132,9 @@ export default function RootLayout() {
 
   return (
     <ThemeProvider>
-      <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
+      <SafeAreaProvider initialMetrics={providerInitialMetrics}>
+        {content}
+      </SafeAreaProvider>
     </ThemeProvider>
   );
 }
@@ -139,9 +145,21 @@ function IncomingCallNavigator() {
   const routedCallId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!incomingOffer?.fromUserId || routedCallId.current === incomingOffer.callId) return;
+    if (
+      !incomingOffer?.fromUserId ||
+      routedCallId.current === incomingOffer.callId
+    )
+      return;
     routedCallId.current = incomingOffer.callId;
-    router.push({ pathname: "/call", params: { peerId: String(incomingOffer.fromUserId), peerName: incomingOffer.callerName ?? "", direction: "incoming", mode: incomingOffer.withVideo ? "video" : "audio" } });
+    router.push({
+      pathname: "/call",
+      params: {
+        peerId: String(incomingOffer.fromUserId),
+        peerName: incomingOffer.callerName ?? "",
+        direction: "incoming",
+        mode: incomingOffer.withVideo ? "video" : "audio",
+      },
+    });
   }, [incomingOffer, router]);
   return null;
 }
