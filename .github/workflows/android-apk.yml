@@ -5,11 +5,58 @@ on:
     branches:
       - main
   workflow_dispatch:
+    inputs:
+      bootstrap_release_keystore:
+        description: "Tạo keystore mới và lưu KETNOI_RELEASE_* secrets"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
 
 jobs:
+  bootstrap-release-keystore:
+    name: Create secure Android release keystore
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.bootstrap_release_keystore }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      ACTIONS_SECRETS_TOKEN: ${{ secrets.ACTIONS_SECRETS_TOKEN }}
+
+    steps:
+      - name: Verify token availability
+        run: |
+          set -euo pipefail
+          test -n "$ACTIONS_SECRETS_TOKEN"
+
+      - name: Create and store release keystore
+        env:
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          WORKDIR="$(mktemp -d)"
+          trap 'rm -rf "$WORKDIR"' EXIT
+          STORE_PASSWORD="$(openssl rand -base64 48 | tr -dc 'A-Za-z0-9' | head -c 32)"
+          KEY_ALIAS="ketnoi"
+          keytool -genkeypair -v \
+            -keystore "$WORKDIR/ketnoi-release.p12" \
+            -storetype PKCS12 \
+            -storepass "$STORE_PASSWORD" \
+            -keypass "$STORE_PASSWORD" \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA \
+            -keysize 4096 \
+            -validity 10000 \
+            -dname 'CN=Ket Noi, OU=Mobile, O=Ket Noi, L=Ha Noi, ST=Ha Noi, C=VN' \
+            -noprompt >/dev/null
+          base64 -w 0 "$WORKDIR/ketnoi-release.p12" | GH_TOKEN="$ACTIONS_SECRETS_TOKEN" gh secret set KETNOI_RELEASE_KEYSTORE_B64 --repo "$REPOSITORY"
+          printf '%s' "$STORE_PASSWORD" | GH_TOKEN="$ACTIONS_SECRETS_TOKEN" gh secret set KETNOI_RELEASE_STORE_PASSWORD --repo "$REPOSITORY"
+          printf '%s' "$STORE_PASSWORD" | GH_TOKEN="$ACTIONS_SECRETS_TOKEN" gh secret set KETNOI_RELEASE_KEY_PASSWORD --repo "$REPOSITORY"
+          printf '%s' "$KEY_ALIAS" | GH_TOKEN="$ACTIONS_SECRETS_TOKEN" gh secret set KETNOI_RELEASE_KEY_ALIAS --repo "$REPOSITORY"
+          FINGERPRINT="$(keytool -list -v -keystore "$WORKDIR/ketnoi-release.p12" -storetype PKCS12 -storepass "$STORE_PASSWORD" -alias "$KEY_ALIAS" | awk -F': ' '/SHA256:/{print $2; exit}')"
+          printf 'Release keystore stored. SHA-256 certificate fingerprint: %s\n' "$FINGERPRINT"
+
   build-debug-apk:
     name: Build Android debug APK
     runs-on: ubuntu-latest

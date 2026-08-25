@@ -104,3 +104,4 @@
 - [x] Khắc phục truy cập GitHub repository và cấu hình GitHub Actions tự động tạo APK khi push nhánh main.
 - [x] Xác minh APK tự động và tạo GitHub Release đính kèm tệp APK cho phiên bản hiện tại.
 - [x] Chuyển GitHub repository sang public và xác minh link tải APK không cần đăng nhập.
+- [ ] Tạo keystore Android release mới và lưu bốn GitHub Actions Secrets bằng quyền Actions secrets: Read and write
