@@ -4,6 +4,7 @@ import { router } from "expo-router";
 
 import { ScreenContainer } from "@/components/screen-container";
 import { useMobileAuth } from "@/lib/auth-context";
+import { authErrorMessage } from "@/lib/auth-utils";
 
 export default function AuthScreen() {
   const { signIn, register } = useMobileAuth();
@@ -39,8 +40,8 @@ export default function AuthScreen() {
         <View style={styles.card}><View style={styles.modeToggle}><Pressable onPress={() => { setMode("login"); setError(""); }} style={({ pressed }) => [styles.modeButton, mode === "login" && styles.modeSelected, pressed && styles.pressed]}><Text style={[styles.modeText, mode === "login" && styles.modeTextSelected]}>Đăng nhập</Text></Pressable><Pressable onPress={() => { setMode("register"); setError(""); }} style={({ pressed }) => [styles.modeButton, mode === "register" && styles.modeSelected, pressed && styles.pressed]}><Text style={[styles.modeText, mode === "register" && styles.modeTextSelected]}>Đăng ký</Text></Pressable></View>
         {mode === "register" ? <Field label="Tên hiển thị" value={displayName} onChangeText={setDisplayName} placeholder="Ví dụ: Minh Anh" autoCapitalize="words" /> : null}
         {mode === "register" ? <Field label="Email" value={email} onChangeText={setEmail} placeholder="minhanh@example.com" autoCapitalize="none" keyboardType="email-address" /> : null}
-        <Field label="Tên người dùng" value={username} onChangeText={setUsername} placeholder="minhanh_01" autoCapitalize="none" />
-        <Field label="Mật khẩu" value={password} onChangeText={setPassword} placeholder="Tối thiểu 8 ký tự" secureTextEntry editable={!loading} />
+        <Field label="Tên người dùng" value={username} onChangeText={setUsername} placeholder="minhanh_01" autoCapitalize="none" autoCorrect={false} />
+        <Field label="Mật khẩu" value={password} onChangeText={setPassword} placeholder="Tối thiểu 8 ký tự" secureTextEntry editable={!loading} autoCapitalize="none" autoCorrect={false} />
         <Pressable disabled={loading} onPress={() => setRemember((value) => !value)} accessibilityRole="checkbox" accessibilityState={{ checked: remember }} style={({ pressed }) => [styles.rememberRow, (pressed || loading) && styles.pressed]}><View style={[styles.checkbox, remember && styles.checkboxChecked]}>{remember ? <Text style={styles.checkmark}>✓</Text> : null}</View><View style={styles.rememberCopy}><Text style={styles.rememberTitle}>Ghi nhớ đăng nhập</Text><Text style={styles.rememberHint}>{remember ? "Giữ phiên trên thiết bị này" : "Chỉ dùng phiên này"}</Text></View></Pressable>
         {error ? <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View> : null}
         <Pressable disabled={loading} onPress={submit} style={({ pressed }) => [styles.submit, (pressed || loading) && styles.pressed]}>{loading ? <View style={styles.loadingLabel}><ActivityIndicator color="#FFFFFF" size="small" /><Text style={styles.submitText}>{mode === "login" ? "Đang đăng nhập…" : "Đang tạo tài khoản…"}</Text></View> : <Text style={styles.submitText}>{mode === "login" ? "Đăng nhập" : "Tạo tài khoản và đăng nhập"}</Text>}</Pressable>
@@ -51,9 +52,7 @@ export default function AuthScreen() {
   </ScreenContainer>;
 }
 
-function authErrorMessage(reason: unknown, mode: "login" | "register") { const message = reason instanceof Error ? reason.message : ""; if (message.includes("INVALID_CREDENTIALS")) return "Tên người dùng hoặc mật khẩu chưa đúng. Hãy kiểm tra và thử lại."; if (message.includes("ACCOUNT_UNAVAILABLE")) return "Tên người dùng hoặc email này đã được sử dụng. Hãy chọn thông tin khác."; if (message.includes("INVALID_INPUT")) return "Thông tin chưa hợp lệ. Hãy kiểm tra lại các trường đã nhập."; if (message.includes("Network request failed") || message.includes("Không thể kết nối")) return "Chưa thể kết nối máy chủ. Hãy kiểm tra mạng rồi thử lại."; return mode === "login" ? "Chưa thể đăng nhập lúc này. Vui lòng thử lại sau ít phút." : "Chưa thể tạo tài khoản lúc này. Vui lòng thử lại sau ít phút."; }
-
-function Field({ label, ...props }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; secureTextEntry?: boolean; autoCapitalize?: "none" | "words"; keyboardType?: "default" | "email-address"; editable?: boolean }) {
+function Field({ label, ...props }: { label: string; value: string; onChangeText: (value: string) => void; placeholder: string; secureTextEntry?: boolean; autoCapitalize?: "none" | "words"; autoCorrect?: boolean; keyboardType?: "default" | "email-address"; editable?: boolean }) {
   return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput {...props} style={styles.input} placeholderTextColor="#8A99AB" returnKeyType="next" /></View>;
 }
 

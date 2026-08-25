@@ -32,3 +32,7 @@
 - [x] Kiểm tra kết nối API xác thực, cấu hình URL backend và dữ liệu người dùng.
 - [x] Sửa riêng endpoint hoặc client xác thực cần thiết.
 - [x] Kiểm thử đăng ký và đăng nhập end-to-end trên backend công khai.
+- [x] Khoanh vùng lỗi đăng nhập lại sau đăng xuất mà không thay đổi giao diện/tính năng khác.
+- [x] Rà soát phiên lưu cục bộ, logout và client API đăng nhập.
+- [x] Sửa riêng luồng xóa phiên và đăng nhập lại.
+- [x] Kiểm thử đăng nhập lại end-to-end trên backend công khai.

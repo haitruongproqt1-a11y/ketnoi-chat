@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
 import { mobileApi, type AuthPayload, type MobileUser } from "./mobile-api";
+import { normalizeAuthUsername } from "./auth-utils";
 
 const SESSION_KEY = "ketnoi.mobile.session.v1";
 
@@ -40,8 +41,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     else await AsyncStorage.removeItem(SESSION_KEY);
   }, []);
 
-  const signIn = useCallback(async (username: string, password: string, remember = true) => save(await mobileApi.login(username.trim(), password), remember), [save]);
-  const register = useCallback(async (username: string, displayName: string, password: string, email?: string, remember = true) => save(await mobileApi.register(username.trim(), displayName.trim(), password, email?.trim()), remember), [save]);
+  const signIn = useCallback(async (username: string, password: string, remember = true) => save(await mobileApi.login(normalizeAuthUsername(username), password), remember), [save]);
+  const register = useCallback(async (username: string, displayName: string, password: string, email?: string, remember = true) => save(await mobileApi.register(normalizeAuthUsername(username), displayName.trim(), password, email?.trim()), remember), [save]);
   const updateCurrentUser = useCallback(async (nextUser: MobileUser) => { setUser(nextUser); const stored = await AsyncStorage.getItem(SESSION_KEY); if (!stored) return; const payload = JSON.parse(stored) as AuthPayload; await AsyncStorage.setItem(SESSION_KEY, JSON.stringify({ ...payload, user: nextUser })); }, []);
   const signOut = useCallback(async () => { setToken(null); setUser(null); await AsyncStorage.removeItem(SESSION_KEY); }, []);
 
