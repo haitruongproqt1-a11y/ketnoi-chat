@@ -100,3 +100,5 @@
 - [x] Hoàn thiện bản web mô phỏng cho chat và trải nghiệm cuộc gọi trên trình duyệt.
 - [x] Tách cấu hình frontend/backend để sẵn sàng triển khai lên hạ tầng cloud khác.
 - [x] Soạn hướng dẫn build APK thủ công bằng Expo/EAS CLI trên máy cá nhân.
+- [x] Kiểm tra khả năng liên kết GitHub và chuẩn bị phương án build APK ngoài sandbox.
+- [x] Khắc phục truy cập GitHub repository và cấu hình GitHub Actions tự động tạo APK khi push nhánh main.

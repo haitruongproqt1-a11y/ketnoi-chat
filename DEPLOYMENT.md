@@ -30,15 +30,23 @@ npx eas-cli build --platform android --profile preview --local
 
 Lệnh local build tiêu tốn đáng kể CPU, RAM và dung lượng; chỉ chạy trên máy cá nhân có Android toolchain đầy đủ. Sau build EAS thành công, dashboard EAS hiển thị URL tải APK và mã QR cài đặt.
 
+## APK tự động trên GitHub
+
+Repository đã có workflow `.github/workflows/android-apk.yml`. Mỗi lần push vào nhánh `main` (hoặc chạy thủ công tại tab **Actions**) workflow sẽ cài dependencies, kiểm tra TypeScript, tạo Android native project bằng Expo prebuild và build `app-debug.apk`. APK debug có thể cài trực tiếp để kiểm thử nội bộ; không phải bản ký để phát hành lên Google Play.
+
+Sau khi workflow chạy thành công, mở repository trên GitHub bằng đúng tài khoản được cấp quyền, vào **Actions** → **Android APK** → chọn lần chạy mới nhất → mục **Artifacts** → tải `ket-noi-debug-apk-<commit>`. Artifact được giữ trong 14 ngày. Vì repository đang ở chế độ private, GitHub yêu cầu đăng nhập đúng tài khoản có quyền trước khi xem trang hoặc tải APK.
+
+Workflow không cần đưa token, file `.env`, TURN credential hoặc private signing key lên GitHub. Ứng dụng đang có endpoint HTTPS mặc định. Nếu cần thay endpoint ở từng bản build, đặt `EXPO_PUBLIC_API_URL` và `EXPO_PUBLIC_SOCKET_URL` dưới dạng **Repository variables**; không lưu chúng như credential bí mật.
+
 ## Checklist cloud
 
-| Thành phần | Yêu cầu |
-|---|---|
-| API/Socket.io | Domain HTTPS, WebSocket upgrade, health check và CORS giới hạn origin |
-| Database | SQLite chỉ phù hợp thử nghiệm đơn node; dùng PostgreSQL/MySQL managed khi mở rộng |
-| Tệp media | Dùng object storage/S3 thay vì ổ đĩa tạm của container |
-| TURN | Coturn hoặc nhà cung cấp TURN, credential ngắn hạn, UDP/TCP/TLS |
-| Biến bí mật | Thiết lập bằng secret manager của nền tảng, không commit vào Git |
+| Thành phần    | Yêu cầu                                                                           |
+| ------------- | --------------------------------------------------------------------------------- |
+| API/Socket.io | Domain HTTPS, WebSocket upgrade, health check và CORS giới hạn origin             |
+| Database      | SQLite chỉ phù hợp thử nghiệm đơn node; dùng PostgreSQL/MySQL managed khi mở rộng |
+| Tệp media     | Dùng object storage/S3 thay vì ổ đĩa tạm của container                            |
+| TURN          | Coturn hoặc nhà cung cấp TURN, credential ngắn hạn, UDP/TCP/TLS                   |
+| Biến bí mật   | Thiết lập bằng secret manager của nền tảng, không commit vào Git                  |
 
 ## Kiểm tra trước phát hành
 
