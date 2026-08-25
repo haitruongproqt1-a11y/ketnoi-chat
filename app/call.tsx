@@ -7,6 +7,7 @@ import { useMobileAuth } from "@/lib/auth-context";
 import { mobileApi } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
+import { createCallId } from "@/lib/call-id";
 
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 const HtmlVideo = "video" as any;
@@ -38,7 +39,7 @@ export default function WebCallScreen() {
   const localRef = useRef<any>(null);
   const screenRef = useRef<any>(null);
   const candidatesRef = useRef<any[]>([]);
-  const callId = useRef(incomingOffer?.callId ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const callId = useRef(incomingOffer?.callId ?? createCallId());
   const [localStream, setLocalStream] = useState<any>(null);
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [callState, setCallState] = useState<CallState>(direction === "incoming" ? "incoming" : "connecting");

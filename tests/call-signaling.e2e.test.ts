@@ -50,6 +50,24 @@ function once<T>(socket: Socket, event: string, predicate: (payload: T) => boole
 afterEach(() => sockets.splice(0).forEach((socket) => socket.disconnect()));
 
 describe.skipIf(!shouldRun)("call signaling end-to-end", () => {
+  it("rejects an invalid callId with an explicit signaling error", async () => {
+    const caller = await register("invalidcall");
+    const callerSocket = await connect(caller.token);
+    const invalidId = "call.invalid";
+
+    const rejected = once<{ callId: string; message: string }>(callerSocket, "call:error", (payload) => payload.callId === invalidId);
+    callerSocket.emit("call:offer", {
+      toUserId: 999_999,
+      callId: invalidId,
+      description: { type: "offer", sdp: "invalid" },
+    });
+
+    await expect(rejected).resolves.toMatchObject({
+      callId: invalidId,
+      message: expect.stringContaining("không hợp lệ"),
+    });
+  });
+
   it("relays offer/answer/screen-share/hangup and saves call history", async () => {
     const [caller, callee] = await Promise.all([register("caller"), register("callee")]);
     const invite = await request<{ id: number }>("/api/friend-requests", { method: "POST", body: JSON.stringify({ recipientId: callee.user.id }) }, caller.token);

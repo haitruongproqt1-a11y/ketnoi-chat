@@ -4,8 +4,6 @@ import Constants from "expo-constants";
 import { useRouter } from "expo-router";
 import { Platform } from "react-native";
 import { useEffect } from "react";
-
-import { endSystemCall, initializeCallKeep, presentIncomingSystemCall } from "./callkeep";
 import { useMobileAuth } from "./auth-context";
 import { mobileApi } from "./mobile-api";
 
@@ -54,7 +52,6 @@ export function NotificationBridge() {
       const call = getIncomingCall(response.notification.request.content.data);
       if (call) {
         if (response.actionIdentifier === "decline") {
-          endSystemCall(call.callId);
           void mobileApi.declineCall(token, call.callId).catch(() => undefined);
           return;
         }
@@ -66,14 +63,8 @@ export function NotificationBridge() {
       if (typeof url === "string" && url.startsWith("/")) router.push(url as any);
     };
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(handleResponse);
-    const receivedSubscription = Notifications.addNotificationReceivedListener((notification) => {
-      const call = getIncomingCall(notification.request.content.data);
-      if (call && Platform.OS !== "web") {
-        void initializeCallKeep().then((ready) => { if (ready) presentIncomingSystemCall(call); }).catch(() => undefined);
-      }
-    });
     void Notifications.getLastNotificationResponseAsync().then((response) => { if (response) handleResponse(response); });
-    return () => { responseSubscription.remove(); receivedSubscription.remove(); };
+    return () => { responseSubscription.remove(); };
   }, [router, token]);
 
   return null;

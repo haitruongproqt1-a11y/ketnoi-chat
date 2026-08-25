@@ -89,7 +89,6 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     "./plugins/with-ketnoi-android-permissions.cjs",
-    "./plugins/with-callkeep-namespace.cjs",
     [
       "expo-audio",
       {

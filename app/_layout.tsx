@@ -158,6 +158,7 @@ function IncomingCallNavigator() {
         peerName: incomingOffer.callerName ?? "",
         direction: "incoming",
         mode: incomingOffer.withVideo ? "video" : "audio",
+        callId: incomingOffer.callId,
       },
     });
   }, [incomingOffer, router]);

@@ -4,9 +4,13 @@ import { io, type Socket } from "socket.io-client";
 import { mobileApi, SOCKET_URL, type ChatMedia, type MobileMessage } from "./mobile-api";
 import { useMobileAuth } from "./auth-context";
 import { playFriendRequestFeedback, playIncomingMessageTone } from "./sound-feedback";
+import {
+  CallSignalMailbox,
+  type CallSignalEnvelope,
+  type CallSignalEvent,
+  type CallSignalPayload,
+} from "./call-signal-mailbox";
 
-type SignalEvent = "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share" | "call:error";
-type CallSignal = { fromUserId?: number; toUserId?: number; callId: string; description?: RTCSessionDescriptionInit; candidate?: RTCIceCandidateInit; withVideo?: boolean; callerName?: string; reason?: "ended" | "missed" | "declined"; quickReply?: string; isScreenSharing?: boolean; message?: string };
 type ChatTyping = { fromUserId: number; isTyping: boolean };
 type ChatReadReceipt = { readerId: number; peerId: number; messageIds: number[]; readAt: string };
 type ChatDeliveryReceipt = { recipientId: number; messageIds: number[]; deliveredAt: string };
@@ -26,11 +30,15 @@ type SocketContextValue = {
   lastClearedConversation: ChatCleared | null;
   pendingFriendRequestCount: number;
   refreshPendingFriendRequestCount: () => Promise<void>;
-  incomingOffer: CallSignal | null;
-  latestSignal: { event: SignalEvent; payload: CallSignal } | null;
+  incomingOffer: CallSignalPayload | null;
+  latestSignal: CallSignalEnvelope | null;
   sendMessage: (recipientId: number, body: string, media?: ChatMedia, mediaItems?: ChatMedia[]) => Promise<MobileMessage>;
   sendTyping: (recipientId: number, isTyping: boolean) => void;
-  sendSignal: (event: SignalEvent, payload: CallSignal) => void;
+  waitForSocket: () => Promise<void>;
+  sendSignal: (event: CallSignalEvent, payload: CallSignalPayload) => Promise<void>;
+  consumeCallSignals: (callId: string) => CallSignalEnvelope[];
+  subscribeCallSignals: (callId: string, listener: (signal: CallSignalEnvelope) => void) => () => void;
+  clearCallSignals: (callId: string) => void;
   clearSignal: () => void;
   clearIncomingOffer: () => void;
 };
@@ -40,6 +48,7 @@ const SocketContext = createContext<SocketContextValue | null>(null);
 export function SocketProvider({ children }: { children: React.ReactNode }) {
   const { token, user } = useMobileAuth();
   const socketRef = useRef<Socket | null>(null);
+  const callMailboxRef = useRef(new CallSignalMailbox());
   const [socket, setSocket] = useState<Socket | null>(null);
   const [onlineIds, setOnlineIds] = useState<number[]>([]);
   const [lastMessage, setLastMessage] = useState<MobileMessage | null>(null);
@@ -51,7 +60,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   const [lastDeletedMessage, setLastDeletedMessage] = useState<ChatDeleted | null>(null);
   const [lastClearedConversation, setLastClearedConversation] = useState<ChatCleared | null>(null);
   const [pendingFriendRequestCount, setPendingFriendRequestCount] = useState(0);
-  const [incomingOffer, setIncomingOffer] = useState<CallSignal | null>(null);
+  const [incomingOffer, setIncomingOffer] = useState<CallSignalPayload | null>(null);
   const [latestSignal, setLatestSignal] = useState<SocketContextValue["latestSignal"]>(null);
 
   const refreshPendingFriendRequestCount = useCallback(async () => {
@@ -65,7 +74,7 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   useEffect(() => {
-    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); setLastMessageRecall(null); setLastDeletedMessage(null); setLastClearedConversation(null); setPendingFriendRequestCount(0); return; }
+    if (!token) { socketRef.current?.disconnect(); socketRef.current = null; callMailboxRef.current.clearAll(); setSocket(null); setOnlineIds([]); setLastTyping(null); setLastReadReceipt(null); setLastDeliveryReceipt(null); setLastMediaRecall(null); setLastMessageRecall(null); setLastDeletedMessage(null); setLastClearedConversation(null); setPendingFriendRequestCount(0); return; }
     void refreshPendingFriendRequestCount();
     const instance = io(SOCKET_URL, { auth: { token }, transports: ["websocket", "polling"] });
     socketRef.current = instance;
@@ -81,8 +90,9 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
     instance.on("chat:deleted", (payload: ChatDeleted) => setLastDeletedMessage(payload));
     instance.on("chat:cleared", (payload: ChatCleared) => setLastClearedConversation(payload));
     instance.on("friend:request", () => { playFriendRequestFeedback(); setPendingFriendRequestCount((count) => count + 1); });
-    const signalEvents: SignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup", "call:screen-share", "call:error"];
-    signalEvents.forEach((event) => instance.on(event, (payload: CallSignal) => {
+    const signalEvents: CallSignalEvent[] = ["call:offer", "call:answer", "call:ice-candidate", "call:hangup", "call:screen-share", "call:error"];
+    signalEvents.forEach((event) => instance.on(event, (payload: CallSignalPayload) => {
+      callMailboxRef.current.push({ event, payload });
       if (event === "call:offer") setIncomingOffer(payload);
       setLatestSignal({ event, payload });
     }));
@@ -127,7 +137,63 @@ export function SocketProvider({ children }: { children: React.ReactNode }) {
       });
     }),
     sendTyping: (recipientId, isTyping) => socketRef.current?.emit("chat:typing", { recipientId, isTyping }),
-    sendSignal: (event, payload) => socketRef.current?.emit(event, payload),
+    waitForSocket: () => new Promise<void>((resolve, reject) => {
+      const instance = socketRef.current;
+      if (instance?.connected) {
+        resolve();
+        return;
+      }
+      if (!instance) {
+        reject(new Error("Kết nối signaling chưa sẵn sàng."));
+        return;
+      }
+      const timeout = setTimeout(() => {
+        instance.off("connect", connected);
+        instance.off("connect_error", failed);
+        reject(new Error("Không thể kết nối máy chủ signaling."));
+      }, 8_000);
+      const connected = () => {
+        clearTimeout(timeout);
+        instance.off("connect_error", failed);
+        resolve();
+      };
+      const failed = () => {
+        clearTimeout(timeout);
+        instance.off("connect", connected);
+        reject(new Error("Không thể kết nối máy chủ signaling."));
+      };
+      instance.once("connect", connected);
+      instance.once("connect_error", failed);
+    }),
+    sendSignal: async (event, payload) => {
+      const instance = socketRef.current;
+      if (!instance) throw new Error("Kết nối signaling chưa sẵn sàng.");
+      if (!instance.connected) {
+        await new Promise<void>((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            instance.off("connect", connected);
+            instance.off("connect_error", failed);
+            reject(new Error("Không thể kết nối máy chủ signaling."));
+          }, 8_000);
+          const connected = () => {
+            clearTimeout(timeout);
+            instance.off("connect_error", failed);
+            resolve();
+          };
+          const failed = () => {
+            clearTimeout(timeout);
+            instance.off("connect", connected);
+            reject(new Error("Không thể kết nối máy chủ signaling."));
+          };
+          instance.once("connect", connected);
+          instance.once("connect_error", failed);
+        });
+      }
+      instance.emit(event, payload);
+    },
+    consumeCallSignals: (callId) => callMailboxRef.current.consume(callId),
+    subscribeCallSignals: (callId, listener) => callMailboxRef.current.subscribe(callId, listener),
+    clearCallSignals: (callId) => callMailboxRef.current.clear(callId),
     clearSignal: () => setLatestSignal(null),
     clearIncomingOffer: () => setIncomingOffer(null),
   }), [incomingOffer, lastClearedConversation, lastDeletedMessage, lastDeliveryReceipt, lastMediaRecall, lastMessage, lastMessageRecall, lastReadReceipt, lastTyping, latestSignal, onlineIds, pendingFriendRequestCount, refreshPendingFriendRequestCount, socket, token]);

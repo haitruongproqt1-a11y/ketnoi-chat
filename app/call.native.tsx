@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { router, Stack, useLocalSearchParams } from "expo-router";
 import * as Haptics from "expo-haptics";
@@ -12,8 +12,11 @@ import { useMobileAuth } from "@/lib/auth-context";
 import { mobileApi } from "@/lib/mobile-api";
 import { useMobileSocket } from "@/lib/socket-context";
 import { createMobilePeerConfiguration } from "@/lib/mobile-call-config";
+import { createMobileMediaConstraints } from "@/lib/call-media-config";
+import { createAndroidScreenShareConstraints } from "@/lib/android-screen-share-config";
+import { createCallId } from "@/lib/call-id";
 import { startCallWaitingTone, startIncomingRingtone, stopCallWaitingTone, stopIncomingRingtone } from "@/lib/sound-feedback";
-import { clearSystemCall, endSystemCall, initializeCallKeep, markSystemCallConnected, presentOutgoingSystemCall, setSystemCallMuted, setSystemCallSpeaker } from "@/lib/callkeep";
+import type { CallSignalEnvelope } from "@/lib/call-signal-mailbox";
 
 type CallState = "incoming" | "connecting" | "connected" | "ended" | "error";
 type PreviewCorner = "left" | "right";
@@ -34,12 +37,12 @@ export default function CallScreen() {
   const peerId = Number(peerIdParam);
   const withVideo = mode !== "audio";
   const { token } = useMobileAuth();
-  const { incomingOffer, latestSignal, sendSignal, clearIncomingOffer, clearSignal } = useMobileSocket();
+  const { incomingOffer, sendSignal, waitForSocket, clearIncomingOffer, consumeCallSignals, subscribeCallSignals, clearCallSignals } = useMobileSocket();
   const peerRef = useRef<RTCPeerConnection | null>(null);
   const localRef = useRef<any>(null);
   const screenRef = useRef<any>(null);
   const candidatesRef = useRef<any[]>([]);
-  const callId = useRef(incomingOffer?.callId ?? callIdParam ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const callId = useRef(incomingOffer?.callId ?? callIdParam ?? createCallId());
   const [localStream, setLocalStream] = useState<any>(null);
   const [remoteStream, setRemoteStream] = useState<any>(null);
   const [callState, setCallState] = useState<CallState>(direction === "incoming" ? "incoming" : "connecting");
@@ -55,23 +58,22 @@ export default function CallScreen() {
   const [showQuickReplies, setShowQuickReplies] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   const feedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const signalQueueRef = useRef<Promise<void>>(Promise.resolve());
 
   const stopCall = (notify = true) => {
-    if (notify && peerId) sendSignal("call:hangup", { toUserId: peerId, callId: callId.current });
+    if (notify && peerId) void sendSignal("call:hangup", { toUserId: peerId, callId: callId.current }).catch(() => undefined);
     peerRef.current?.close();
     peerRef.current = null;
     localRef.current?.getTracks().forEach((track: any) => track.stop());
     localRef.current = null;
-    screenRef.current?.getTracks().forEach((track: any) => track.stop());
+    screenRef.current?.getTracks().forEach((track: any) => { track.onended = null; track.stop(); });
     screenRef.current = null;
     InCallManager.stop();
-    endSystemCall(callId.current);
-    clearSystemCall(callId.current);
     setLocalStream(null);
     setRemoteStream(null);
     setCallState("ended");
     clearIncomingOffer();
-    clearSignal();
+    clearCallSignals(callId.current);
   };
 
   const flushCandidates = async () => {
@@ -84,16 +86,13 @@ export default function CallScreen() {
     if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
     const peer = new RTCPeerConnection(createMobilePeerConfiguration(await mobileApi.iceConfig(token)) as any);
     peer.onicecandidate = ({ candidate }: any) => {
-      if (candidate) sendSignal("call:ice-candidate", { toUserId: peerId, callId: callId.current, candidate: candidate.toJSON() });
+      if (candidate) void sendSignal("call:ice-candidate", { toUserId: peerId, callId: callId.current, candidate: candidate.toJSON() }).catch(() => undefined);
     };
     peer.ontrack = (event: any) => {
       if (event.streams?.[0]) setRemoteStream(event.streams[0]);
     };
     peer.onconnectionstatechange = () => {
-      if (peer.connectionState === "connected") {
-        markSystemCallConnected(callId.current);
-        setCallState("connected");
-      }
+      if (peer.connectionState === "connected") setCallState("connected");
       if (["failed", "disconnected"].includes(peer.connectionState)) {
         setError("Kết nối cuộc gọi đã bị ngắt.");
         setCallState("error");
@@ -106,7 +105,7 @@ export default function CallScreen() {
   const getMedia = async () => {
     InCallManager.start({ media: "audio", auto: true });
     InCallManager.setSpeakerphoneOn(withVideo);
-    const stream = await mediaDevices.getUserMedia({ audio: true, video: withVideo ? { facingMode: "user", frameRate: 30 } : false });
+    const stream = await mediaDevices.getUserMedia(createMobileMediaConstraints(withVideo) as any);
     localRef.current = stream;
     setLocalStream(stream);
     return stream;
@@ -114,14 +113,13 @@ export default function CallScreen() {
 
   const makeOutgoingCall = async () => {
     try {
-      if (!await initializeCallKeep()) throw new Error("Không thể khởi tạo giao diện cuộc gọi hệ thống.");
-      presentOutgoingSystemCall({ callId: callId.current, peerId, peerName, withVideo, direction: "outgoing" });
+      await waitForSocket();
       const stream = await getMedia();
       const peer = await setupPeer();
       stream.getTracks().forEach((track: any) => peer.addTrack(track, stream));
       const offer = await peer.createOffer();
       await peer.setLocalDescription(offer);
-      sendSignal("call:offer", { toUserId: peerId, callId: callId.current, description: offer, withVideo });
+      await sendSignal("call:offer", { toUserId: peerId, callId: callId.current, description: offer, withVideo });
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "Không thể truy cập camera hoặc microphone.");
       setCallState("error");
@@ -130,6 +128,7 @@ export default function CallScreen() {
 
   const acceptCall = async () => {
     try {
+      await waitForSocket();
       const invite = incomingOffer?.description
         ? incomingOffer
         : token && callIdParam
@@ -144,7 +143,7 @@ export default function CallScreen() {
       await flushCandidates();
       const answer = await peer.createAnswer();
       await peer.setLocalDescription(answer);
-      sendSignal("call:answer", { toUserId: invite.fromUserId ?? peerId, callId: callId.current, description: answer });
+      await sendSignal("call:answer", { toUserId: invite.fromUserId ?? peerId, callId: callId.current, description: answer });
       clearIncomingOffer();
       setCallState("connecting");
     } catch (reason) {
@@ -185,14 +184,14 @@ export default function CallScreen() {
     return () => stopCallWaitingTone();
   }, [callState, direction]);
 
-  useEffect(() => {
-    if (!latestSignal || latestSignal.payload.callId !== callId.current) return;
-    const { event, payload } = latestSignal;
+  const applySignal = useCallback(async ({ event, payload }: CallSignalEnvelope) => {
+    if (payload.callId !== callId.current) return;
     if (event === "call:answer" && payload.description && peerRef.current) {
-      void peerRef.current.setRemoteDescription(asDescription(payload.description)).then(flushCandidates);
+      await peerRef.current.setRemoteDescription(asDescription(payload.description));
+      await flushCandidates();
     }
     if (event === "call:ice-candidate" && payload.candidate) {
-      if (peerRef.current?.remoteDescription) void peerRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
+      if (peerRef.current?.remoteDescription) await peerRef.current.addIceCandidate(new RTCIceCandidate(payload.candidate));
       else candidatesRef.current.push(payload.candidate);
     }
     if (event === "call:screen-share") setRemoteIsScreenSharing(Boolean(payload.isScreenSharing));
@@ -208,7 +207,22 @@ export default function CallScreen() {
       setError(payload.message ?? "Không thể thiết lập cuộc gọi.");
       setCallState("error");
     }
-  }, [latestSignal]);
+  }, [clearIncomingOffer, clearCallSignals]);
+
+  const enqueueSignal = useCallback((signal: CallSignalEnvelope) => {
+    signalQueueRef.current = signalQueueRef.current
+      .then(() => applySignal(signal))
+      .catch((reason) => {
+        setError(reason instanceof Error ? reason.message : "Không thể xử lý tín hiệu cuộc gọi.");
+        setCallState("error");
+      });
+  }, [applySignal]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCallSignals(callId.current, enqueueSignal);
+    consumeCallSignals(callId.current).forEach(enqueueSignal);
+    return unsubscribe;
+  }, [consumeCallSignals, enqueueSignal, subscribeCallSignals]);
 
   useEffect(() => {
     if (callState !== "connected") return;
@@ -227,7 +241,6 @@ export default function CallScreen() {
     const next = !muted;
     localRef.current?.getAudioTracks().forEach((track: any) => { track.enabled = !next; });
     InCallManager.setMicrophoneMute(next);
-    setSystemCallMuted(callId.current, next);
     setMuted(next);
     showFeedback(next ? "Đã tắt micro" : "Đã bật micro");
   };
@@ -235,7 +248,6 @@ export default function CallScreen() {
   const toggleSpeaker = () => {
     const next = !speakerOn;
     InCallManager.setSpeakerphoneOn(next);
-    setSystemCallSpeaker(callId.current, next);
     setSpeakerOn(next);
     showFeedback(next ? "Đã bật loa ngoài" : "Đã chuyển về tai nghe");
   };
@@ -262,26 +274,30 @@ export default function CallScreen() {
     const cameraTrack = localRef.current?.getVideoTracks?.()[0] ?? null;
     if (currentScreen) currentScreen.getTracks().forEach((track: any) => { track.onended = null; track.stop(); });
     screenRef.current = null;
-    if (cameraTrack) await replaceOutgoingVideo(cameraTrack);
-    if (notify && peerId) sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: false });
+    if (cameraTrack && peerRef.current) await replaceOutgoingVideo(cameraTrack);
+    if (notify && peerId) await sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: false });
     setIsScreenSharing(false);
     if (notify) showFeedback("Đã dừng chia sẻ màn hình");
   };
 
   const toggleScreenShare = async () => {
-    if (!withVideo || !peerRef.current) return;
+    if (!withVideo) return;
+    if (!peerRef.current || callState !== "connected") {
+      showFeedback("Hãy chờ cuộc gọi video kết nối trước khi chia sẻ màn hình");
+      return;
+    }
     try {
       if (isScreenSharing) {
         await stopScreenShare();
         return;
       }
-      const displayStream = await mediaDevices.getDisplayMedia({ android: { createConfigForDefaultDisplay: true, resolutionScale: 0.75 } });
+      const displayStream = await mediaDevices.getDisplayMedia(createAndroidScreenShareConstraints() as any);
       const displayTrack = displayStream.getVideoTracks()[0];
       if (!displayTrack) throw new Error("Thiết bị không cung cấp luồng chia sẻ màn hình.");
-      displayTrack.onended = () => { void stopScreenShare(); };
+      displayTrack.onended = () => { void stopScreenShare().catch(() => undefined); };
       await replaceOutgoingVideo(displayTrack);
       screenRef.current = displayStream;
-      sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: true });
+      await sendSignal("call:screen-share", { toUserId: peerId, callId: callId.current, isScreenSharing: true });
       setIsScreenSharing(true);
       showFeedback("Đang chia sẻ màn hình");
     } catch (reason) {
@@ -295,7 +311,7 @@ export default function CallScreen() {
   };
 
   const declineIncomingCall = (quickReply?: string) => {
-    if (peerId) sendSignal("call:hangup", { toUserId: peerId, callId: callId.current, reason: "declined", ...(quickReply ? { quickReply } : {}) });
+    if (peerId) void sendSignal("call:hangup", { toUserId: peerId, callId: callId.current, reason: "declined", ...(quickReply ? { quickReply } : {}) }).catch(() => undefined);
     stopCall(false);
     router.back();
   };

@@ -730,7 +730,13 @@ export function registerMobileCallService(app: Express, httpServer: HttpServer) 
     const relay = async (event: "call:offer" | "call:answer" | "call:ice-candidate" | "call:hangup" | "call:screen-share", payload: CallSignalPayload) => {
       const peerId = Number(payload.toUserId);
       const callId = validCallId(payload.callId);
-      if (!Number.isInteger(peerId) || peerId <= 0 || !callId) return;
+      if (!Number.isInteger(peerId) || peerId <= 0 || !callId) {
+        socket.emit("call:error", {
+          callId: typeof payload.callId === "string" ? payload.callId : "",
+          message: "Tín hiệu cuộc gọi không hợp lệ. Vui lòng thử lại.",
+        });
+        return;
+      }
       try {
         await ensureCallable(user.id, peerId);
         if (event === "call:offer") {

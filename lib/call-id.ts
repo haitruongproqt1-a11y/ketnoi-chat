@@ -1,16 +1,12 @@
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-function hashCallId(value: string, seed: number) {
-  let hash = seed;
-  for (let index = 0; index < value.length; index += 1) hash = Math.imul(hash ^ value.charCodeAt(index), 0x01000193);
-  return (hash >>> 0).toString(16).padStart(8, "0");
+/**
+ * Produces a backend-safe call ID: 8–96 characters drawn from [A-Za-z0-9_-].
+ * The value is shared by offer, answer, candidates, hangup and persisted invite.
+ */
+export function createCallId(now = Date.now(), random = Math.random()): string {
+  const suffix = Math.abs(random).toString(36).replace(/[^a-z0-9]/gi, "").slice(0, 16).padEnd(8, "0");
+  return `call_${now}_${suffix}`;
 }
 
-export function toSystemCallUuid(callId: string) {
-  if (UUID_PATTERN.test(callId)) return callId.toLowerCase();
-  const first = hashCallId(callId, 0x811c9dc5);
-  const second = hashCallId(callId, 0x9e3779b9);
-  const third = hashCallId(callId, 0x85ebca6b);
-  const fourth = hashCallId(callId, 0xc2b2ae35);
-  return `${first}-${second.slice(0, 4)}-4${second.slice(5, 8)}-8${third.slice(1, 4)}-${third}${fourth.slice(0, 4)}`;
+export function isValidCallId(value: string) {
+  return /^[A-Za-z0-9_-]{8,96}$/.test(value);
 }
