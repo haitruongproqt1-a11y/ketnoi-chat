@@ -28,3 +28,7 @@
 - [x] Rà soát plugin Android, manifest và phụ thuộc CallKeep/WebRTC có thể gây lỗi build.
 - [x] Sửa cấu hình native gây lỗi Gradle và xác minh Android prebuild.
 - [x] Lưu bản sửa và hướng dẫn tạo APK lại.
+- [x] Khoanh vùng nguyên nhân đăng ký và đăng nhập thất bại, không thay đổi giao diện/tính năng khác.
+- [x] Kiểm tra kết nối API xác thực, cấu hình URL backend và dữ liệu người dùng.
+- [x] Sửa riêng endpoint hoặc client xác thực cần thiết.
+- [x] Kiểm thử đăng ký và đăng nhập end-to-end trên backend công khai.
