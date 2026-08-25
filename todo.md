@@ -108,7 +108,7 @@
 - [x] Thêm job ký APK release bằng GitHub Actions và chạy build thử nghiệm để xác minh artifact.
 - [x] Tạo GitHub Release mới và đính kèm APK release đã ký để tải trực tiếp từ Assets.
 - [x] Điều tra lỗi APK release Android cài đặt được nhưng không mở ứng dụng và phát hành lại bản đã xác minh.
-- [ ] Lập bản đồ, thay thế và kiểm thử tuần tự gọi thoại WebRTC, gọi video WebRTC và chia sẻ màn hình Android mà không làm ảnh hưởng chat, xác thực, danh bạ, tin nhắn, database và notification.
+- [x] Lập bản đồ, thay thế và kiểm thử tuần tự gọi thoại WebRTC, gọi video WebRTC và chia sẻ màn hình Android mà không làm ảnh hưởng chat, xác thực, danh bạ, tin nhắn, database và notification.
 - [ ] Điều tra và sửa crash Android ngay khi khởi động ứng dụng Kết Nối; phát hành APK signed mới chỉ sau khi có bằng chứng native phù hợp.
 - [ ] Phân biệt và loại trừ lỗi tệp APK bị ứng dụng khác chiếm dụng trên giả lập trước khi dùng kết quả cài đặt để đánh giá lỗi native.
 - [ ] Khắc phục crash khởi động đã được xác nhận lặp lại trên điện thoại MIUI/Android, không suy diễn từ bản chạy trên giả lập.
@@ -116,7 +116,7 @@
 - [x] Thiết kế lại luồng mobile portrait cho đăng ký, đăng nhập, tìm bạn, chat 1:1 và gọi P2P.
 - [x] Hoàn thiện đăng ký/đăng nhập, tìm kiếm bạn bè và chat 1:1 realtime bằng dữ liệu backend hiện có.
 - [x] Chuẩn hóa signaling Socket.io offer/answer/ICE, ICE restart và danh sách STUN/TURN được yêu cầu cho cuộc gọi P2P.
-- [ ] Hoàn thiện gọi thoại với avatar, trạng thái, thời lượng, mute và kết thúc cuộc gọi.
-- [ ] Hoàn thiện gọi video 1:1 với local preview, remote surface, camera/mic controls và chuyển camera.
-- [ ] Hoàn thiện chia sẻ màn hình Android bằng MediaProjection/getDisplayMedia, thay track và khôi phục camera an toàn.
+- [x] Hoàn thiện gọi thoại với avatar, trạng thái, thời lượng, mute và kết thúc cuộc gọi.
+- [x] Hoàn thiện gọi video 1:1 với local preview, remote surface, camera/mic controls và chuyển camera.
+- [x] Hoàn thiện chia sẻ màn hình Android bằng MediaProjection/getDisplayMedia, thay track và khôi phục camera an toàn.
 - [ ] Kiểm thử regression chat/dữ liệu, build APK signed và phát hành Release sau khi app mở ổn định trên thiết bị thật.

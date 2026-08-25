@@ -92,7 +92,11 @@ export default function CallScreen() {
 
   const setupPeer = async () => {
     if (!token) throw new Error("Phiên đăng nhập đã hết hạn.");
-    const peer = new RTCPeerConnection(createMobilePeerConfiguration() as any);
+    const iceConfig = await mobileApi.iceConfig(token);
+    const peer = new RTCPeerConnection({
+      ...createMobilePeerConfiguration(),
+      iceServers: iceConfig.iceServers,
+    } as any);
     peer.onicecandidate = ({ candidate }: any) => {
       if (candidate) void sendSignal("call:ice-candidate", { toUserId: peerId, callId: callId.current, candidate: candidate.toJSON() }).catch(() => undefined);
     };
@@ -155,11 +159,16 @@ export default function CallScreen() {
         iceRestart: true,
       });
     } catch {
-      if (iceRestartAttemptsRef.current >= MAX_ICE_RESTART_ATTEMPTS) {
-        setIsRecovering(false);
-        setError("Không thể khôi phục kết nối cuộc gọi. Vui lòng gọi lại.");
-        setCallState("error");
+      if (iceRestartAttemptsRef.current < MAX_ICE_RESTART_ATTEMPTS && shouldStartIceRestart(peer.iceConnectionState, iceRestartAttemptsRef.current, direction !== "incoming")) {
+        iceRestartTimerRef.current = setTimeout(() => {
+          iceRestartTimerRef.current = null;
+          void requestIceRestart(peer);
+        }, ICE_RESTART_DELAY_MS);
+        return;
       }
+      setIsRecovering(false);
+      setError("Không thể khôi phục kết nối cuộc gọi. Vui lòng gọi lại.");
+      setCallState("error");
     }
   };
 
