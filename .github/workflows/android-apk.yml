@@ -112,7 +112,7 @@ jobs:
           gh run download "$ARTIFACT_RUN_ID" --repo "$GITHUB_REPOSITORY" --name "$ARTIFACT_NAME" --dir release-artifact
           APK="$(find release-artifact -type f -name '*.apk' -print -quit)"
           test -n "$APK"
-          mv "$APK" release-artifact/app-release.apk
+          if [ "$APK" != "release-artifact/app-release.apk" ]; then mv "$APK" release-artifact/app-release.apk; fi
           sha256sum release-artifact/app-release.apk
 
       - name: Create GitHub Release with APK asset
